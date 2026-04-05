@@ -110,6 +110,66 @@
             setInterval(fetchTasks, 5000);
         }
 
+        const HIDDEN_CONFIG_KEYS = ['targetUrl', 'taskName', 'lastSavedItemKey', 'strategy', 'runMode', 'recrawlIntervalHours'];
+
+        function statusBadge(status, cfg) {
+            const badge = (text, color) =>
+                `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-${color}-50 text-${color}-600 border border-${color}-100">${text}</span>`;
+            if (status === 'completed') return badge('Completed', 'emerald');
+            if (status === 'running') return badge('Running', 'blue');
+            if (status === 'failed') return badge('Failed', 'red');
+            return cfg.runMode !== 'once' ? badge('Recurring', 'amber') : badge('Pending', 'amber');
+        }
+
+        function renderTask(task, cfg) {
+            const metaParts = [];
+            if (cfg.strategy) metaParts.push(`<span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">${cfg.strategy}</span>`);
+            if (cfg.recrawlIntervalHours) metaParts.push(`<span class="text-[10px] text-slate-400 font-bold">every ${cfg.recrawlIntervalHours}h</span>`);
+            if (cfg.lastSavedItemKey) metaParts.push(`<span class="text-[10px] text-slate-400 font-bold flex items-center gap-1"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>bookmarked</span>`);
+
+            const detailFields = Object.entries(cfg)
+                .filter(([key]) => !HIDDEN_CONFIG_KEYS.includes(key))
+                .map(([key, val]) => `
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">${key}</span>
+                        <span class="text-sm font-semibold text-slate-700">${val || '-'}</span>
+                    </div>
+                `).join('');
+
+            return `
+                <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+                    <div class="flex items-start justify-between relative z-10">
+                        <div class="flex items-center gap-5">
+                            <div class="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-inner">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-lg leading-none mb-2">${task.name}</h4>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-[10px] font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">${task.site}</span>
+                                    ${task.targetUrl ? `
+                                        <a href="${task.targetUrl}" target="_blank" class="text-xs text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1 font-medium">
+                                            Target Link
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                        </a>
+                                    ` : ''}
+                                    ${metaParts.join('')}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end gap-2">
+                            ${statusBadge(task.status, cfg)}
+                        </div>
+                    </div>
+                    ${detailFields ? `
+                        <div class="mt-6 pt-5 border-t border-slate-100">
+                            <div class="grid grid-cols-2 gap-4">${detailFields}</div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
         async function fetchTasks() {
             try {
                 const response = await fetch('/api/tasks');
@@ -133,65 +193,10 @@
                     return;
                 }
 
-                container.innerHTML = tasks.map(task => `
-                    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
-                        <div class="flex items-start justify-between relative z-10">
-                            <div class="flex items-center gap-5">
-                                <div class="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-inner">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                </div>
-                                <div>
-                                    <h4 class="font-bold text-slate-900 text-lg leading-none mb-2">${task.name}</h4>
-                                    <div class="flex items-center gap-3">
-                                        <span class="text-[10px] font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">${task.site}</span>
-                                        ${task.targetUrl ? `
-                                            <a href="${task.targetUrl}" target="_blank" class="text-xs text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1 font-medium">
-                                                Target Link
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                                            </a>
-                                        ` : ''}
-                                        ${(() => {
-                                            const cfg = task.config ? JSON.parse(task.config) : {};
-                                            const parts = [];
-                                            if (cfg.strategy) parts.push(`<span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">${cfg.strategy}</span>`);
-                                            if (cfg.recrawlIntervalHours) parts.push(`<span class="text-[10px] text-slate-400 font-bold">every ${cfg.recrawlIntervalHours}h</span>`);
-                                            if (cfg.lastSavedItemKey) parts.push(`<span class="text-[10px] text-slate-400 font-bold flex items-center gap-1"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>bookmarked</span>`);
-                                            return parts.join('');
-                                        })()}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="flex flex-col items-end gap-2">
-                                ${(() => {
-                                    const s = task.status;
-                                    const cfg = task.config ? JSON.parse(task.config) : {};
-                                    const isRecurring = cfg.schedule !== 'once';
-                                    if (s === 'completed') return '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">Completed</span>';
-                                    if (s === 'running') return '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100">Running</span>';
-                                    if (s === 'failed') return '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-600 border border-red-100">Failed</span>';
-                                    return isRecurring
-                                        ? '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-100">Recurring</span>'
-                                        : '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-100">Pending</span>';
-                                })()}
-                            </div>
-                        </div>
-                        ${task.config ? `
-                            <div class="mt-6 pt-5 border-t border-slate-100">
-                                <div class="grid grid-cols-2 gap-4">
-                                    ${Object.entries(JSON.parse(task.config)).map(([key, val]) => {
-                                        if (['targetUrl', 'taskName', 'lastSavedItemKey', 'strategy', 'schedule', 'recrawlIntervalHours'].includes(key)) return '';
-                                        return `
-                                            <div>
-                                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">${key}</span>
-                                                <span class="text-sm font-semibold text-slate-700">${val || '-'}</span>
-                                            </div>
-                                        `;
-                                    }).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
-                    </div>
-                `).join('');
+                container.innerHTML = tasks.map(task => {
+                    const cfg = task.config ? JSON.parse(task.config) : {};
+                    return renderTask(task, cfg);
+                }).join('');
             } catch (err) {
                 console.error('Failed to fetch tasks:', err);
             }

@@ -47,8 +47,8 @@ export const crawlerDefinitions: CrawlerDefinition[] = [
         ],
       },
       {
-        id: 'schedule',
-        label: 'Schedule',
+        id: 'runMode',
+        label: 'Run Mode',
         type: 'select',
         default: 'recurring',
         options: [
@@ -92,8 +92,8 @@ export const crawlerDefinitions: CrawlerDefinition[] = [
         ],
       },
       {
-        id: 'schedule',
-        label: 'Schedule',
+        id: 'runMode',
+        label: 'Run Mode',
         type: 'select',
         default: 'recurring',
         options: [

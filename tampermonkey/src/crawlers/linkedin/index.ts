@@ -30,7 +30,7 @@ async function fetchImageAsBase64(url: string): Promise<{ url: string; base64: s
 export const linkedinCrawler: SiteCrawler = {
   name: 'linkedin',
   match: matchesLinkedIn,
-  run: async (task, progress) => {
+  run: async (task, config, progress) => {
     progress.info('Starting LinkedIn crawl');
 
     // Wait for initial posts to appear
@@ -45,7 +45,6 @@ export const linkedinCrawler: SiteCrawler = {
       throw new Error('No posts found after waiting.');
     }
 
-    const config = task.config ? JSON.parse(task.config) : {};
     const lastSavedItemKey = config.lastSavedItemKey;
     const processedIds = new Set<string>();
     let savedCount = 0;

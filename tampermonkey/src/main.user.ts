@@ -1,6 +1,7 @@
 import { crawlers } from './crawlers/index.js';
-import { BACKEND_URL } from './lib/api.js';
+import { fetchPendingTasks, updateTaskStatus } from './lib/api.js';
 import { CrawlProgress } from './lib/progress.js';
+import type { Task, TaskConfig } from './lib/types.js';
 
 (function () {
   'use strict';
@@ -17,18 +18,22 @@ import { CrawlProgress } from './lib/progress.js';
     }
   }
 
-  /** Check whether a task is due for re-crawl based on its schedule. */
-  function isDue(task: any): boolean {
-    const config = task.config ? JSON.parse(task.config) : {};
+  function parseConfig(task: Task): TaskConfig {
+    return task.config ? JSON.parse(task.config) : {};
+  }
+
+  /** Check whether a task is due for re-crawl based on its runMode. */
+  function isDue(task: Task): boolean {
+    const config = parseConfig(task);
 
     // One-time tasks move to 'completed' after running, so if we see one here
     // it's still pending and hasn't run yet — always due.
-    if (config.schedule === 'once') {
+    if (config.runMode === 'once') {
       return true;
     }
 
     // Recurring tasks check the interval
-    const intervalHours = parseFloat(config.recrawlIntervalHours);
+    const intervalHours = parseFloat(String(config.recrawlIntervalHours));
     if (!intervalHours || intervalHours <= 0) return true;
 
     const lastRun = task.updatedAt ? new Date(task.updatedAt + 'Z').getTime() : 0;
@@ -37,37 +42,7 @@ import { CrawlProgress } from './lib/progress.js';
     return elapsedHours >= intervalHours;
   }
 
-  async function checkTasks(): Promise<any[]> {
-    return new Promise((resolve, reject) => {
-      GM_xmlhttpRequest({
-        method: 'GET',
-        url: `${BACKEND_URL}/api/tasks/pending`,
-        onload: (response) => {
-          try {
-            resolve(JSON.parse(response.responseText));
-          } catch (e) {
-            reject(e);
-          }
-        },
-        onerror: (err) => reject(err),
-      });
-    });
-  }
-
-  async function updateTaskStatus(taskId: string, status: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      GM_xmlhttpRequest({
-        method: 'POST',
-        url: `${BACKEND_URL}/api/tasks/${taskId}/status`,
-        headers: { 'Content-Type': 'application/json' },
-        data: JSON.stringify({ status }),
-        onload: () => resolve(),
-        onerror: (err) => reject(err),
-      });
-    });
-  }
-
-  function showIndicator(tasks: any[]) {
+  function showIndicator(tasks: Task[]) {
     if (tasks.length === 0) return;
 
     const div = document.createElement('div');
@@ -81,7 +56,7 @@ import { CrawlProgress } from './lib/progress.js';
     div.style.backgroundColor = 'red';
     div.style.cursor = 'pointer';
     div.style.zIndex = '9999';
-    div.title = `${tasks.length} due crawls: ${tasks.map((t: any) => t.name).join(', ')}`;
+    div.title = `${tasks.length} due crawls: ${tasks.map((t) => t.name).join(', ')}`;
 
     div.onclick = () => {
       const first = tasks[0];
@@ -95,7 +70,7 @@ import { CrawlProgress } from './lib/progress.js';
 
   async function init() {
     try {
-      const tasks = await checkTasks();
+      const tasks = await fetchPendingTasks();
       const currentUrl = window.location.href;
       const normalizedCurrent = normalizeUrl(currentUrl);
 
@@ -110,13 +85,13 @@ import { CrawlProgress } from './lib/progress.js';
         const crawler = crawlers.find((c) => c.match(currentUrl));
         if (crawler) {
           console.log('[Crawler] Task matched! Running crawler for task:', task.id);
+          const config = parseConfig(task);
           const progress = new CrawlProgress(task.id);
-          const config = task.config ? JSON.parse(task.config) : {};
           try {
             await updateTaskStatus(task.id, 'running');
-            await crawler.run(task, progress);
+            await crawler.run(task, config, progress);
             // Recurring tasks return to pending; one-time tasks complete
-            const nextStatus = config.schedule === 'once' ? 'completed' : 'pending';
+            const nextStatus = config.runMode === 'once' ? 'completed' : 'pending';
             await updateTaskStatus(task.id, nextStatus).catch(() => {});
           } catch (err) {
             console.error('[Crawler] Crawl failed:', err);

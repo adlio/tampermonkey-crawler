@@ -5,7 +5,7 @@ import { extractAllListings, matchesCarMax } from './extractors.js';
 export const carmaxCrawler: SiteCrawler = {
   name: 'carmax',
   match: matchesCarMax,
-  run: async (task, progress) => {
+  run: async (task, _config, progress) => {
     progress.info('Starting CarMax crawl');
 
     // Wait for results to load

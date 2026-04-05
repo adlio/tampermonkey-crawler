@@ -1,3 +1,5 @@
+import type { Task } from './types.js';
+
 export const BACKEND_URL = 'http://localhost:4242';
 
 export function sendToServer(
@@ -28,6 +30,36 @@ export function updateTaskConfig(taskId: string, updates: Record<string, unknown
       url: `${BACKEND_URL}/api/tasks/${taskId}/config`,
       headers: { 'Content-Type': 'application/json' },
       data: JSON.stringify(updates),
+      onload: () => resolve(),
+      onerror: (err) => reject(err),
+    });
+  });
+}
+
+export function fetchPendingTasks(): Promise<Task[]> {
+  return new Promise((resolve, reject) => {
+    GM_xmlhttpRequest({
+      method: 'GET',
+      url: `${BACKEND_URL}/api/tasks/pending`,
+      onload: (response) => {
+        try {
+          resolve(JSON.parse(response.responseText));
+        } catch (e) {
+          reject(e);
+        }
+      },
+      onerror: (err) => reject(err),
+    });
+  });
+}
+
+export function updateTaskStatus(taskId: string, status: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    GM_xmlhttpRequest({
+      method: 'POST',
+      url: `${BACKEND_URL}/api/tasks/${taskId}/status`,
+      headers: { 'Content-Type': 'application/json' },
+      data: JSON.stringify({ status }),
       onload: () => resolve(),
       onerror: (err) => reject(err),
     });
