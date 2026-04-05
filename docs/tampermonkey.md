@@ -1,0 +1,141 @@
+# Tampermonkey
+
+Vite-built Tampermonkey userscript that runs in the browser. Lives in `tampermonkey/`.
+
+## Source files
+
+```
+tampermonkey/
+  src/
+    main.user.ts             Entry point: task polling, URL matching, crawl dispatch
+    extractors/
+      types.ts               LinkedInRawPost, CarMaxRawListing, ExtractionResult
+      linkedin.ts            CSS selectors + pure DOM extraction for LinkedIn
+      carmax.ts              Pure DOM extraction for CarMax
+      index.ts               Barrel exports
+      __fixtures__/          HTML fixtures for jsdom tests
+        linkedin-feed.html   4 posts: original, repost, text-only, malformed
+        carmax-results.html  3 car tiles: full, full, missing-fields
+      __tests__/             Extraction tests (vitest, jsdom)
+        linkedin.test.ts
+        carmax.test.ts
+    sites/
+      index.ts               SiteCrawler interface + crawler registry
+      linkedin.ts            LinkedIn crawl orchestration
+      carmax.ts              CarMax crawl orchestration
+    lib/
+      progress.ts            CrawlProgress class
+    types/
+      index.ts               Task, CollectedData interfaces
+  vite.config.ts             Userscript metadata (@connect, @grant, @match)
+  vitest.config.ts           Test config (jsdom environment)
+  tsconfig.json
+```
+
+## How it works
+
+1. `main.user.ts` runs on every page load (the userscript matches `*://*/*`)
+2. It fetches pending tasks from `GET /api/tasks/pending`
+3. Compares the current URL against each task's `targetUrl` (normalized to strip trailing slashes, query params, etc.)
+4. If a match is found, looks up the site crawler by calling `crawler.match(url)`
+5. Creates a `CrawlProgress` instance and calls `crawler.run(task, progress)`
+6. Sets task status to `running` before the crawl and back to `pending` after (in a `finally` block, so missions are reusable)
+7. If no task matches, shows a red dot indicator with pending task count
+
+## Extractors
+
+Pure functions in `tampermonkey/src/extractors/`. They take a DOM element or document and return structured data. No network calls, no side effects, no `GM_xmlhttpRequest`.
+
+### LinkedIn (`extractors/linkedin.ts`)
+
+Exports:
+- `extractPost(element)` -> `LinkedInRawPost | null` -- single post extraction
+- `extractAllPosts(root)` -> `ExtractionResult<LinkedInRawPost>` -- batch extraction with error collection
+- `matchesLinkedIn(url)` -> `boolean`
+- `queryWithFallbacks(root, selectors)` -> `Element[]` -- tries selectors in order, returns first match
+- All selector constants (`POST_SELECTORS`, `TEXT_SELECTORS`, etc.)
+
+Selector strategy: multiple fallback selectors per data point, ordered from most stable (data attributes like `data-urn`) to least stable (generic class names). See [docs/troubleshooting.md](troubleshooting.md#which-selectors-survive-site-changes) for the durability ranking.
+
+Uses `textContent` instead of `innerText` and `getAttribute()` instead of property access for jsdom compatibility.
+
+Image filtering: `IGNORE_IMAGE_PATTERNS` excludes profile photos, company logos, and other UI chrome from the extracted `imageUrls`.
+
+### CarMax (`extractors/carmax.ts`)
+
+Exports:
+- `extractListing(card)` -> `CarMaxRawListing | null` -- single card extraction
+- `extractAllListings(root)` -> `ExtractionResult<CarMaxRawListing>` -- batch with errors
+- `matchesCarMax(url)` -> `boolean`
+
+Selectors: `.car-tile` container, `.car-tile--title`, `.car-tile--price`, `.car-tile--mileage`, `.car-tile--link`, `data-vin` attribute.
+
+## Site crawlers
+
+Orchestration layer in `tampermonkey/src/sites/`. Each crawler implements the `SiteCrawler` interface:
+
+```typescript
+interface SiteCrawler {
+  name: string;
+  match: (url: string) => boolean;
+  run: (task: any, progress: CrawlProgress) => Promise<void>;
+}
+```
+
+Crawlers are registered in `sites/index.ts`. The `match` function determines which crawler handles a given URL. The `run` function orchestrates the full crawl: wait for page load, extract data, fetch images, send to server.
+
+### LinkedIn (`sites/linkedin.ts`)
+
+1. Waits up to 20 seconds for posts to appear (10 retries x 2s)
+2. Scroll-and-save loop: extract visible posts, send each to server, scroll, repeat
+3. Stops after 3 consecutive rounds with no new posts (`MAX_STALE_ROUNDS`)
+4. Stops if it encounters `lastSavedPostId` from a previous crawl (incremental)
+5. Fetches content images as base64 via `GM_xmlhttpRequest` (cross-origin)
+6. Sends each post individually to `POST /api/collect` with `itemKey = postId`
+
+### CarMax (`sites/carmax.ts`)
+
+1. Waits 3 seconds for results to render
+2. Extracts all listings at once using `extractAllListings(document)`
+3. Sends each listing individually to `POST /api/collect` with `itemKey = vin`
+
+## CrawlProgress
+
+`tampermonkey/src/lib/progress.ts`
+
+Fire-and-forget logging class. Every method logs to both `console.log` and `POST /api/tasks/:id/log`. Network failures are silently ignored so logging never blocks the crawl.
+
+Tracks three counters internally: `found`, `saved`, `errors`.
+
+Methods:
+- `info(message)`, `warn(message)`, `error(message)` -- log at level
+- `setFound(count)` -- update found counter
+- `itemSaved()` -- increment saved, send progress log
+- `itemError(message)` -- increment errors, send error log
+- `progress(found, saved, errors)` -- set all counters and log
+
+## Build
+
+```bash
+make build-tampermonkey
+```
+
+Uses Vite with `vite-plugin-monkey` to produce `tampermonkey/dist/tampermonkey.user.js`. The userscript header is generated from `vite.config.ts`:
+
+- `@match *://*/*` -- runs on all pages
+- `@grant GM_xmlhttpRequest` -- cross-origin requests
+- `@connect localhost, 127.0.0.1, licdn.com` -- allowed request domains
+
+To add a new domain for image fetching, add it to the `connect` array in `vite.config.ts`. Use bare domains without wildcards (Tampermonkey auto-covers subdomains).
+
+After building, the script is served by the server at `http://localhost:4242/tampermonkey.user.js` for easy installation.
+
+## Testing
+
+```bash
+make test-tampermonkey
+```
+
+Tests use vitest with a jsdom environment. HTML fixtures in `__fixtures__/` simulate real site DOM. Tests verify that extractors produce correct structured data from the fixture HTML.
+
+When selectors break due to site changes, update the fixture HTML and extractor selectors together, then run tests. See [docs/troubleshooting.md](troubleshooting.md#8-updating-fixtures) for the full workflow.

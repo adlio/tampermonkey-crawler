@@ -73,7 +73,7 @@ Possible causes:
 
 ### Profile photos / logos appearing in saved content
 
-LinkedIn content images get mixed in with profile pictures and company logos. The `IGNORE_IMAGE_PATTERNS` array in `tampermonkey/src/sites/linkedin.ts` filters these out:
+LinkedIn content images get mixed in with profile pictures and company logos. The `IGNORE_IMAGE_PATTERNS` array in `tampermonkey/src/extractors/linkedin.ts` filters these out:
 
 ```ts
 const IGNORE_IMAGE_PATTERNS = [
@@ -168,7 +168,7 @@ Logs are persisted to the `crawl_logs` table in `crawler.db`. To retrieve them:
 GET /api/tasks/:id/logs
 ```
 
-Note: this endpoint must be implemented on the server side. The `CrawlProgress` class in `tampermonkey/src/lib/progress.ts` sends logs to `POST /api/tasks/:id/log`.
+The `CrawlProgress` class in `tampermonkey/src/lib/progress.ts` sends logs to `POST /api/tasks/:id/log`.
 
 ### Log levels
 
@@ -219,7 +219,7 @@ Step-by-step guide for adding, say, `carvana.com`:
 2. **Create an HTML fixture and tests.**
    Save a representative chunk of the site's DOM:
    ```
-   tampermonkey/src/__fixtures__/carvana-results.html
+   tampermonkey/src/extractors/__fixtures__/carvana-results.html
    ```
    Write tests that load this fixture with jsdom and verify the extractor returns the expected data.
 
