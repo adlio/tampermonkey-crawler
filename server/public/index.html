@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crawler Control Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+    <div class="max-w-4xl mx-auto py-12 px-4">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-slate-900">Crawler Control</h1>
+                <p class="text-slate-500 mt-1 font-medium">Manage your browser-based data extraction missions.</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="clearTasks()" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-slate-200 bg-white hover:bg-slate-100 h-10 px-4 py-2 text-slate-900 shadow-sm">
+                    Clear All
+                </button>
+                <button onclick="showMissionModal()" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-indigo-600 text-white hover:bg-indigo-700 h-10 px-4 py-2 shadow-sm">
+                    New Mission
+                </button>
+            </div>
+        </div>
+
+        <!-- Setup Alert -->
+        <div class="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 mb-8 flex items-start gap-3 shadow-sm">
+            <div class="text-indigo-600 mt-0.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div>
+                <h3 class="text-sm font-semibold text-indigo-900 leading-none">Setup Status</h3>
+                <p class="text-sm text-indigo-800/80 mt-1.5 leading-relaxed">Ensure the Pluggable Crawler UserScript is installed and active in your browser.</p>
+                <div class="mt-4 flex gap-6">
+                    <a href="/tampermonkey.user.js" class="text-xs font-semibold text-indigo-700 hover:text-indigo-800 transition-colors flex items-center gap-1.5 uppercase tracking-wider">
+                        Download Script
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </a>
+                    <a href="http://localhost:5173/__monkey.user.js" target="_blank" class="text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors uppercase tracking-wider">
+                        Vite Dev Link
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Missions List -->
+        <div class="space-y-4">
+            <h2 class="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                Active Missions
+                <span id="task-count" class="bg-indigo-100 text-indigo-700 text-[10px] py-0.5 px-2 rounded-full font-bold">0</span>
+            </h2>
+            
+            <div id="tasks-container" class="grid gap-4">
+                <div class="bg-white rounded-xl border border-slate-200 p-8 text-center">
+                    <p class="text-slate-400 font-medium">Initializing missions...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Mission Modal -->
+    <div id="mission-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="p-6 border-b border-slate-100">
+                <h3 class="text-xl font-bold">Launch New Mission</h3>
+                <p class="text-slate-500 text-sm mt-1">Select a crawler and configure the parameters.</p>
+            </div>
+            
+            <div class="p-6 space-y-6">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Select Crawler</label>
+                    <select id="crawler-select" onchange="renderTemplateFields()" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                        <option value="">Choose a crawler...</option>
+                    </select>
+                </div>
+                
+                <div id="template-fields" class="space-y-4">
+                    <!-- Dynamic Fields -->
+                </div>
+            </div>
+
+            <div class="p-6 bg-slate-50 flex justify-end gap-3">
+                <button onclick="hideMissionModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                <button onclick="saveMission()" class="px-6 py-2 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md transition-all active:scale-95">Launch Mission</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let definitions = [];
+
+        async function init() {
+            const resp = await fetch('/api/definitions');
+            definitions = await resp.json();
+            
+            const select = document.getElementById('crawler-select');
+            definitions.forEach(def => {
+                const opt = document.createElement('option');
+                opt.value = def.id;
+                opt.innerText = def.name;
+                select.appendChild(opt);
+            });
+            
+            fetchTasks();
+            setInterval(fetchTasks, 5000);
+        }
+
+        async function fetchTasks() {
+            try {
+                const response = await fetch('/api/tasks/pending');
+                const tasks = await response.json();
+                
+                const container = document.getElementById('tasks-container');
+                const countBadge = document.getElementById('task-count');
+                
+                countBadge.innerText = tasks.length;
+
+                if (tasks.length === 0) {
+                    container.innerHTML = `
+                        <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+                            <div class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 text-slate-300 mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            </div>
+                            <h3 class="text-xl font-bold text-slate-900">No active missions</h3>
+                            <p class="text-slate-500 mt-2 max-w-xs mx-auto text-sm leading-relaxed font-medium">Launch a new mission above to begin extracting data from the web.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = tasks.map(task => `
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+                        <div class="flex items-start justify-between relative z-10">
+                            <div class="flex items-center gap-5">
+                                <div class="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-inner">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-slate-900 text-lg leading-none mb-2">${task.name}</h4>
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-[10px] font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">${task.site}</span>
+                                        ${task.targetUrl ? `
+                                            <a href="${task.targetUrl}" target="_blank" class="text-xs text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1 font-medium">
+                                                Target Link
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                            </a>
+                                        ` : ''}
+                                        ${task.config && JSON.parse(task.config).lastSavedPostId ? `
+                                            <span class="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                Progress: ${JSON.parse(task.config).lastSavedPostId.split(':').pop()}
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-end gap-2">
+                                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-100">
+                                    Pending
+                                </span>
+                            </div>
+                        </div>
+                        ${task.config ? `
+                            <div class="mt-6 pt-5 border-t border-slate-100">
+                                <div class="grid grid-cols-2 gap-4">
+                                    ${Object.entries(JSON.parse(task.config)).map(([key, val]) => {
+                                        if (['targetUrl', 'missionName'].includes(key)) return '';
+                                        return `
+                                            <div>
+                                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">${key}</span>
+                                                <span class="text-sm font-semibold text-slate-700">${val || '-'}</span>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Failed to fetch tasks:', err);
+            }
+        }
+
+        function showMissionModal() { document.getElementById('mission-modal').classList.remove('hidden'); }
+        function hideMissionModal() { 
+            document.getElementById('mission-modal').classList.add('hidden');
+            document.getElementById('template-fields').innerHTML = '';
+            document.getElementById('crawler-select').value = '';
+        }
+
+        function renderTemplateFields() {
+            const siteId = document.getElementById('crawler-select').value;
+            const container = document.getElementById('template-fields');
+            container.innerHTML = '';
+            
+            const def = definitions.find(d => d.id === siteId);
+            if (!def) return;
+
+            def.fields.forEach(field => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">${field.label}</label>
+                    <input type="${field.type}" id="field-${field.id}" placeholder="${field.placeholder || ''}" 
+                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-300 shadow-sm">
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function saveMission() {
+            const siteId = document.getElementById('crawler-select').value;
+            if (!siteId) return alert('Please select a crawler.');
+
+            const def = definitions.find(d => d.id === siteId);
+            const config = {};
+            def.fields.forEach(field => {
+                config[field.id] = document.getElementById(`field-${field.id}`).value;
+            });
+
+            const resp = await fetch('/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ siteId, config })
+            });
+
+            if (resp.ok) {
+                hideMissionModal();
+                fetchTasks();
+            }
+        }
+
+        async function clearTasks() {
+            if (confirm('Clear all active missions?')) {
+                await fetch('/api/tasks', { method: 'DELETE' });
+                fetchTasks();
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
