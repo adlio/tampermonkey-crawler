@@ -6,10 +6,7 @@ import { extractListing, extractAllListings, matchesCarMax } from '../carmax.js'
 let doc: Document;
 
 beforeAll(() => {
-  const html = readFileSync(
-    resolve(__dirname, '../__fixtures__/carmax-results.html'),
-    'utf-8',
-  );
+  const html = readFileSync(resolve(__dirname, '../__fixtures__/carmax-results.html'), 'utf-8');
   document.body.innerHTML = html;
   doc = document;
 });
@@ -55,12 +52,8 @@ describe('extractAllListings', () => {
 
   it('extracts all VINs', () => {
     const result = extractAllListings(doc);
-    const vins = result.items.map(l => l.vin);
-    expect(vins).toEqual([
-      '1NXAA52E87Z000111',
-      '5XYPH4A10MG000222',
-      'WBAJB1C51KB000333',
-    ]);
+    const vins = result.items.map((l) => l.vin);
+    expect(vins).toEqual(['1NXAA52E87Z000111', '5XYPH4A10MG000222', 'WBAJB1C51KB000333']);
   });
 });
 

@@ -55,7 +55,7 @@ export function parseMileage(mileageStr: string | null): number | null {
   if (mileageStr == null || mileageStr === '') return null;
 
   // Remove "mi", "miles", commas, and whitespace
-  let cleaned = mileageStr
+  const cleaned = mileageStr
     .replace(/,/g, '')
     .replace(/\b(miles?|mi)\b/gi, '')
     .trim();

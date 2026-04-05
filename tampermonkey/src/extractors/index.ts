@@ -20,8 +20,4 @@ export {
   TIME_SELECTORS,
 } from './linkedin.js';
 
-export {
-  extractListing,
-  extractAllListings,
-  matchesCarMax,
-} from './carmax.js';
+export { extractListing, extractAllListings, matchesCarMax } from './carmax.js';

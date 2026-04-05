@@ -6,10 +6,7 @@ import { extractPost, extractAllPosts, matchesLinkedIn } from '../linkedin.js';
 let doc: Document;
 
 beforeAll(() => {
-  const html = readFileSync(
-    resolve(__dirname, '../__fixtures__/linkedin-feed.html'),
-    'utf-8',
-  );
+  const html = readFileSync(resolve(__dirname, '../__fixtures__/linkedin-feed.html'), 'utf-8');
   // jsdom environment provides a global document; inject fixture into body
   document.body.innerHTML = html;
   doc = document;
@@ -80,7 +77,9 @@ describe('extractPost', () => {
   it('extracts full absolute URL when permalink has full href', () => {
     const post = doc.querySelector('[data-urn="urn:li:activity:7100000000000000003"]')!;
     const result = extractPost(post)!;
-    expect(result.postUrl).toContain('linkedin.com/feed/update/urn:li:activity:7100000000000000003');
+    expect(result.postUrl).toContain(
+      'linkedin.com/feed/update/urn:li:activity:7100000000000000003',
+    );
   });
 
   it('extracts date from time element', () => {
@@ -92,7 +91,9 @@ describe('extractPost', () => {
   it('generates title from first line of text', () => {
     const post = doc.querySelector('[data-urn="urn:li:activity:7100000000000000001"]')!;
     const result = extractPost(post)!;
-    expect(result.title).toBe('Mapping is not about perfection, it is about understanding your landscape.');
+    expect(result.title).toBe(
+      'Mapping is not about perfection, it is about understanding your landscape.',
+    );
     expect(result.title.length).toBeLessThanOrEqual(100);
   });
 
@@ -119,7 +120,7 @@ describe('extractAllPosts', () => {
 
   it('extracts all post IDs correctly', () => {
     const result = extractAllPosts(doc);
-    const ids = result.items.map(p => p.postId);
+    const ids = result.items.map((p) => p.postId);
     expect(ids).toContain('urn:li:activity:7100000000000000001');
     expect(ids).toContain('urn:li:activity:7100000000000000002');
     expect(ids).toContain('urn:li:activity:7100000000000000003');
@@ -128,7 +129,9 @@ describe('extractAllPosts', () => {
 
 describe('matchesLinkedIn', () => {
   it('returns true for LinkedIn activity feed URLs', () => {
-    expect(matchesLinkedIn('https://www.linkedin.com/in/simonwardley/recent-activity/all/')).toBe(true);
+    expect(matchesLinkedIn('https://www.linkedin.com/in/simonwardley/recent-activity/all/')).toBe(
+      true,
+    );
     expect(matchesLinkedIn('https://linkedin.com/in/someone/recent-activity/')).toBe(true);
   });
 

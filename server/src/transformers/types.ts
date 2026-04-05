@@ -14,7 +14,7 @@ export interface NormalizedCarListing {
   fuelType: string | null;
   mileage: number | null;
   condition: string | null;
-  price: number | null;          // cents
+  price: number | null; // cents
   priceCurrency: string;
   priceLabel: string | null;
   exteriorColor: string | null;

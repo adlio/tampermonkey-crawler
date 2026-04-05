@@ -113,11 +113,7 @@ describe('transformToMarkdown', () => {
       timestamp: '2025-12-20T10:00:00Z',
       postId: 'urn:li:activity:101',
       text: 'Look at these images.',
-      images: [
-        { name: 'photo1.jpg' },
-        { name: 'photo2.jpg' },
-        { name: 'photo3.jpg' },
-      ],
+      images: [{ name: 'photo1.jpg' }, { name: 'photo2.jpg' }, { name: 'photo3.jpg' }],
     };
 
     // Only provide buffers for photo1 and photo3 (photo2 has empty content)
@@ -166,7 +162,9 @@ describe('transformToMarkdown', () => {
     });
 
     const content = readFileSync(filePath, 'utf-8');
-    expect(content).toContain('[View on LinkedIn](https://www.linkedin.com/feed/update/urn:li:activity:999)');
+    expect(content).toContain(
+      '[View on LinkedIn](https://www.linkedin.com/feed/update/urn:li:activity:999)',
+    );
   });
 
   it('handles posts with no images', () => {

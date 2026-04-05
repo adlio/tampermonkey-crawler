@@ -25,22 +25,36 @@ export class CrawlProgress {
     });
   }
 
-  info(message: string, data?: Record<string, unknown>) { this.log('info', message, data); }
-  warn(message: string, data?: Record<string, unknown>) { this.log('warn', message, data); }
-  error(message: string, data?: Record<string, unknown>) { this.log('error', message, data); }
+  info(message: string, data?: Record<string, unknown>) {
+    this.log('info', message, data);
+  }
+  warn(message: string, data?: Record<string, unknown>) {
+    this.log('warn', message, data);
+  }
+  error(message: string, data?: Record<string, unknown>) {
+    this.log('error', message, data);
+  }
 
   /** Report progress counters */
   progress(found: number, saved: number, errors: number): void {
     this.found = found;
     this.saved = saved;
     this.errors = errors;
-    this.log('progress', `Found: ${found}, Saved: ${saved}, Errors: ${errors}`, { found, saved, errors });
+    this.log('progress', `Found: ${found}, Saved: ${saved}, Errors: ${errors}`, {
+      found,
+      saved,
+      errors,
+    });
   }
 
   /** Increment saved counter and report */
   itemSaved(): void {
     this.saved++;
-    this.log('progress', `Saved ${this.saved} items`, { found: this.found, saved: this.saved, errors: this.errors });
+    this.log('progress', `Saved ${this.saved} items`, {
+      found: this.found,
+      saved: this.saved,
+      errors: this.errors,
+    });
   }
 
   /** Increment error counter */

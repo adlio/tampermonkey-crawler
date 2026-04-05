@@ -13,9 +13,18 @@
     "test": "npm test --workspaces --if-present",
     "test:server": "npm test --workspace=server",
     "test:tampermonkey": "npm test --workspace=tampermonkey",
-    "clean": "rm -rf node_modules package-lock.json"
+    "lint": "eslint 'server/src/**/*.ts' 'tampermonkey/src/**/*.ts'",
+    "format:check": "prettier --check 'server/src/**/*.ts' 'tampermonkey/src/**/*.ts'",
+    "format": "prettier --write 'server/src/**/*.ts' 'tampermonkey/src/**/*.ts'",
+    "clean": "rm -rf node_modules package-lock.json",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "typescript": "^5.0.0"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.2.0",
+    "husky": "^9.1.7",
+    "prettier": "^3.8.1",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.58.0"
   }
 }

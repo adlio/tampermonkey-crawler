@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 export interface LinkedInTransformOptions {
@@ -26,7 +26,7 @@ export function transformToMarkdown(
 
   // Only write images that actually have content
   const savedImageNames: Set<string> = new Set();
-  imageBuffers.forEach(img => {
+  imageBuffers.forEach((img) => {
     if (img.content && img.content.length > 0) {
       writeFileSync(join(resourceDir, img.name), img.content);
       savedImageNames.add(img.name);
@@ -64,7 +64,9 @@ export function transformToMarkdown(
   frontmatter += `description: ""\n`;
   if (tags.length > 0) {
     frontmatter += `tags:\n`;
-    tags.forEach((tag: string) => { frontmatter += `  - "${tag}"\n`; });
+    tags.forEach((tag: string) => {
+      frontmatter += `  - "${tag}"\n`;
+    });
   }
   frontmatter += `---\n`;
 
@@ -80,13 +82,17 @@ export function transformToMarkdown(
     content += `> ${rawPayload.text.replace(/\n/g, '\n> ')}\n`;
     if (imageEmbeds.length > 0) {
       content += `>\n`;
-      imageEmbeds.forEach((embed: string) => { content += `> ${embed}\n`; });
+      imageEmbeds.forEach((embed: string) => {
+        content += `> ${embed}\n`;
+      });
     }
   } else {
     content += `${rawPayload.text}\n`;
     if (imageEmbeds.length > 0) {
       content += `\n`;
-      imageEmbeds.forEach((embed: string) => { content += `${embed}\n`; });
+      imageEmbeds.forEach((embed: string) => {
+        content += `${embed}\n`;
+      });
     }
   }
 

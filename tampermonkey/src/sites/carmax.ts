@@ -1,8 +1,12 @@
 import type { SiteCrawler } from './index.js';
-import type { CrawlProgress } from '../lib/progress.js';
 import { extractAllListings } from '../extractors/carmax.js';
 
-function sendToServer(taskId: string, site: string, itemKey: string | null, payload: any): Promise<void> {
+function sendToServer(
+  taskId: string,
+  site: string,
+  itemKey: string | null,
+  payload: any,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     GM_xmlhttpRequest({
       method: 'POST',
@@ -25,7 +29,7 @@ export const carmaxCrawler: SiteCrawler = {
     progress.info('Starting CarMax crawl');
 
     // Wait for results to load
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise((r) => setTimeout(r, 3000));
 
     const { items, errors } = extractAllListings(document);
 

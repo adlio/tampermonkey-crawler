@@ -78,23 +78,20 @@ export function extractPost(post: Element): LinkedInRawPost | null {
 
   // Extract author
   const actorElements = queryWithFallbacks(post, ACTOR_SELECTORS);
-  const author = actorElements.length > 0
-    ? (actorElements[0] as HTMLElement).textContent?.trim() ?? ''
-    : '';
+  const author =
+    actorElements.length > 0 ? ((actorElements[0] as HTMLElement).textContent?.trim() ?? '') : '';
 
   // Detect reposts
   const headerElements = queryWithFallbacks(post, REPOST_HEADER_SELECTORS);
-  const headerText = headerElements.length > 0
-    ? (headerElements[0] as HTMLElement).textContent?.trim() ?? ''
-    : '';
+  const headerText =
+    headerElements.length > 0 ? ((headerElements[0] as HTMLElement).textContent?.trim() ?? '') : '';
   const isRepost = /repost/i.test(headerText);
   const repostedBy = isRepost ? headerText.replace(/\s*reposted\s*$/i, '').trim() : '';
 
   // Extract text with fallback selectors
   const textElements = queryWithFallbacks(post, TEXT_SELECTORS);
-  const text = textElements.length > 0
-    ? (textElements[0] as HTMLElement).textContent?.trim() ?? ''
-    : '';
+  const text =
+    textElements.length > 0 ? ((textElements[0] as HTMLElement).textContent?.trim() ?? '') : '';
 
   // Extract canonical post URL from permalink/timestamp link
   const permalinkElements = queryWithFallbacks(post, PERMALINK_SELECTORS);
@@ -117,21 +114,25 @@ export function extractPost(post: Element): LinkedInRawPost | null {
 
   // Generate a title from the first sentence/line of the post
   const firstLine = text.split(/\n/)[0].trim();
-  const title = firstLine.length > 100
-    ? firstLine.substring(0, 100).replace(/\s+\S*$/, '') + '\u2026'
-    : firstLine;
+  const title =
+    firstLine.length > 100
+      ? firstLine.substring(0, 100).replace(/\s+\S*$/, '') + '\u2026'
+      : firstLine;
 
   // Extract unique content image URLs, filtering out profile pics, logos, etc.
   const imageElements = queryWithFallbacks(post, IMAGE_SELECTORS);
-  const imageUrls = Array.from(new Set(
-    imageElements
-      .map(img => (img as HTMLImageElement).getAttribute('src') ?? '')
-      .filter(src =>
-        src !== '' &&
-        !src.startsWith('data:') &&
-        !IGNORE_IMAGE_PATTERNS.some(pattern => pattern.test(src))
-      )
-  ));
+  const imageUrls = Array.from(
+    new Set(
+      imageElements
+        .map((img) => (img as HTMLImageElement).getAttribute('src') ?? '')
+        .filter(
+          (src) =>
+            src !== '' &&
+            !src.startsWith('data:') &&
+            !IGNORE_IMAGE_PATTERNS.some((pattern) => pattern.test(src)),
+        ),
+    ),
+  );
 
   return {
     postId,

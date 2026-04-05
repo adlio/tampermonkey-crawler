@@ -1,10 +1,5 @@
 import type { SiteCrawler } from './index.js';
-import type { CrawlProgress } from '../lib/progress.js';
-import {
-  extractPost,
-  queryWithFallbacks,
-  POST_SELECTORS,
-} from '../extractors/linkedin.js';
+import { extractPost, queryWithFallbacks, POST_SELECTORS } from '../extractors/linkedin.js';
 
 async function fetchImageAsBase64(url: string): Promise<{ url: string; base64: string }> {
   return new Promise((resolve, reject) => {
@@ -57,7 +52,7 @@ export const linkedinCrawler: SiteCrawler = {
     for (let attempt = 0; attempt < 10; attempt++) {
       if (queryWithFallbacks(document, POST_SELECTORS).length > 0) break;
       progress.info('Waiting for posts to load...');
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 2000));
     }
 
     if (queryWithFallbacks(document, POST_SELECTORS).length === 0) {
@@ -99,18 +94,20 @@ export const linkedinCrawler: SiteCrawler = {
         }
 
         // Fetch images as base64 (cross-origin requires GM_xmlhttpRequest)
-        const images = (await Promise.all(
-          extracted.imageUrls.map(url =>
-            fetchImageAsBase64(url).catch(() => {
-              progress.warn(`Failed to fetch image: ${url}`);
-              return null;
-            })
+        const images = (
+          await Promise.all(
+            extracted.imageUrls.map((url) =>
+              fetchImageAsBase64(url).catch(() => {
+                progress.warn(`Failed to fetch image: ${url}`);
+                return null;
+              }),
+            ),
           )
-        )).filter((img): img is { url: string; base64: string } => img !== null);
+        ).filter((img): img is { url: string; base64: string } => img !== null);
 
         const payload = {
           ...extracted,
-          images: images.map(img => ({
+          images: images.map((img) => ({
             url: img.url,
             name: img.url.split('/').pop()?.split('?')[0] || 'image.jpg',
             data: img.base64,
@@ -131,7 +128,7 @@ export const linkedinCrawler: SiteCrawler = {
 
       // Scroll to load more
       window.scrollTo(0, document.body.scrollHeight);
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 2000));
 
       if (newPostsThisRound === 0) {
         staleRounds++;

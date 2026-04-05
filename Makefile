@@ -1,4 +1,4 @@
-.PHONY: all build clean dev-server install test test-server test-tampermonkey
+.PHONY: all build clean dev-server install test test-server test-tampermonkey lint format format-check ci
 
 all: build
 
@@ -24,6 +24,17 @@ test-server:
 
 test-tampermonkey:
 	npm test --workspace=tampermonkey
+
+lint:
+	npm run lint
+
+format:
+	npm run format
+
+format-check:
+	npm run format:check
+
+ci: format-check lint build test
 
 clean:
 	rm -rf node_modules package-lock.json

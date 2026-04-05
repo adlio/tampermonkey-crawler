@@ -68,10 +68,10 @@ import { CrawlProgress } from './lib/progress.js';
     div.title = `${tasks.length} pending crawls: ${tasks.map((t: any) => t.site).join(', ')}`;
 
     div.onclick = () => {
-        const sites = tasks.map((t: any) => t.site).join(', ');
-        if (confirm(`Crawl needed for: ${sites}\n\nDo you want to go to the first one?`)) {
-            window.location.href = `https://${tasks[0].site}`;
-        }
+      const sites = tasks.map((t: any) => t.site).join(', ');
+      if (confirm(`Crawl needed for: ${sites}\n\nDo you want to go to the first one?`)) {
+        window.location.href = `https://${tasks[0].site}`;
+      }
     };
 
     document.body.appendChild(div);
@@ -84,13 +84,13 @@ import { CrawlProgress } from './lib/progress.js';
 
       // Find a task that matches the current URL (normalized to handle trailing slashes, query params, etc.)
       const normalizedCurrent = normalizeUrl(currentUrl);
-      const task = tasks.find(t => {
+      const task = tasks.find((t) => {
         if (!t.targetUrl) return false;
         return normalizedCurrent.startsWith(normalizeUrl(t.targetUrl));
       });
 
       if (task) {
-        const crawler = crawlers.find(c => c.match(currentUrl));
+        const crawler = crawlers.find((c) => c.match(currentUrl));
         if (crawler) {
           console.log('[Crawler] Mission matched! Running crawler for task:', task.id);
           const progress = new CrawlProgress(task.id);
