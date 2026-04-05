@@ -13,7 +13,7 @@ npm install
 make build
 
 # Start the server (port 4242)
-make dev-server
+make dev
 ```
 
 Then install the Tampermonkey script from `http://localhost:4242/tampermonkey.user.js` and create a mission from the dashboard at `http://localhost:4242`.
@@ -51,7 +51,7 @@ Two npm workspaces, one root `package.json`. No shared code between them -- the 
 | Command | What it does |
 |---|---|
 | `make build` | Build both workspaces |
-| `make dev-server` | Start server with hot reload (tsx watch) |
+| `make dev` | Start server with hot reload (tsx watch) |
 | `make test` | Run all tests |
 | `make test-server` | Server transformer tests only |
 | `make test-tampermonkey` | Tampermonkey extractor tests only (jsdom) |

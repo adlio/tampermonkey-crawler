@@ -104,7 +104,7 @@ Work through this checklist in order:
    ```
    You should get a JSON array back. If the connection is refused, start the server:
    ```bash
-   make dev-server
+   make dev
    ```
 
 2. **Does the Tampermonkey script have the right grants?**

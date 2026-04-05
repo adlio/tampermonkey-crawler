@@ -1,4 +1,4 @@
-.PHONY: all build clean dev-server install test test-server test-tampermonkey lint format format-check ci
+.PHONY: all build clean dev install test test-server test-tampermonkey lint format format-check ci
 
 all: build
 
@@ -13,7 +13,7 @@ build-server:
 build-tampermonkey:
 	npm run build --workspace=tampermonkey
 
-dev-server:
+dev:
 	npm run dev --workspace=server
 
 test:
