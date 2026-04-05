@@ -1,4 +1,4 @@
-.PHONY: all build clean dev-server install
+.PHONY: all build clean dev-server install test test-server test-tampermonkey
 
 all: build
 
@@ -15,6 +15,15 @@ build-tampermonkey:
 
 dev-server:
 	npm run dev --workspace=server
+
+test:
+	npm test --workspaces --if-present
+
+test-server:
+	npm test --workspace=server
+
+test-tampermonkey:
+	npm test --workspace=tampermonkey
 
 clean:
 	rm -rf node_modules package-lock.json
