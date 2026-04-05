@@ -2,12 +2,7 @@ import Database from 'better-sqlite3';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const dbPath = process.env.DB_PATH || resolve(__dirname, '../../crawler.db');
-const db = new Database(dbPath);
-
-// Initialize schema
-db.exec(`
+const SCHEMA = `
   CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,
     site TEXT NOT NULL,
@@ -59,6 +54,20 @@ db.exec(`
     PRIMARY KEY (rawCrawlId, blobHash, name)
   );
   CREATE INDEX IF NOT EXISTS idx_raw_crawl_blobs_hash ON raw_crawl_blobs(blobHash);
-`);
+`;
+
+export function initSchema(db: Database.Database): void {
+  db.exec(SCHEMA);
+}
+
+export function createDatabase(path?: string): Database.Database {
+  const db = new Database(path ?? ':memory:');
+  initSchema(db);
+  return db;
+}
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const dbPath = process.env.DB_PATH || resolve(__dirname, '../../crawler.db');
+const db = createDatabase(dbPath);
 
 export default db;
