@@ -3,7 +3,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const dbPath = resolve(__dirname, '../../crawler.db');
+const dbPath = process.env.DB_PATH || resolve(__dirname, '../../crawler.db');
 const db = new Database(dbPath);
 
 // Initialize schema

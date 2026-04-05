@@ -73,6 +73,7 @@ Create a `.env` file in the project root:
 
 ```
 PORT=4242
+# DB_PATH=/data/crawler.db
 ```
 
 ## Documentation

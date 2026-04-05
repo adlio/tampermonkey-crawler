@@ -1,5 +1,6 @@
 import type { SiteCrawler } from '../index.js';
-import { extractPost, queryWithFallbacks, POST_SELECTORS } from './extractors.js';
+import { sendToServer, updateTaskConfig } from '../../lib/api.js';
+import { extractPost, matchesLinkedIn, queryWithFallbacks, POST_SELECTORS } from './extractors.js';
 
 async function fetchImageAsBase64(url: string): Promise<{ url: string; base64: string }> {
   return new Promise((resolve, reject) => {
@@ -26,25 +27,9 @@ async function fetchImageAsBase64(url: string): Promise<{ url: string; base64: s
   });
 }
 
-function sendToServer(taskId: string, site: string, itemKey: string, payload: any): Promise<void> {
-  return new Promise((resolve, reject) => {
-    GM_xmlhttpRequest({
-      method: 'POST',
-      url: 'http://localhost:4242/api/collect',
-      headers: { 'Content-Type': 'application/json' },
-      data: JSON.stringify({ site, taskId, itemKey, payload }),
-      onload: (response) => {
-        if (response.status >= 200 && response.status < 300) resolve();
-        else reject(new Error(`Server returned ${response.status}: ${response.responseText}`));
-      },
-      onerror: (err) => reject(err),
-    });
-  });
-}
-
 export const linkedinCrawler: SiteCrawler = {
   name: 'linkedin',
-  match: (url) => url.includes('linkedin.com/in/') && url.includes('/recent-activity/'),
+  match: matchesLinkedIn,
   run: async (task, progress) => {
     progress.info('Starting LinkedIn crawl');
 
@@ -61,11 +46,12 @@ export const linkedinCrawler: SiteCrawler = {
     }
 
     const config = task.config ? JSON.parse(task.config) : {};
-    const lastSavedPostId = config.lastSavedPostId;
+    const lastSavedItemKey = config.lastSavedItemKey;
     const processedIds = new Set<string>();
     let savedCount = 0;
     let staleRounds = 0;
     let hitLastSaved = false;
+    let newestItemKey: string | null = null;
     const MAX_STALE_ROUNDS = 3;
 
     // Interleave scrolling and saving: process visible posts, scroll for more, repeat
@@ -80,11 +66,14 @@ export const linkedinCrawler: SiteCrawler = {
         newPostsThisRound++;
         progress.setFound(processedIds.size);
 
-        if (postId === lastSavedPostId) {
+        if (postId === lastSavedItemKey) {
           progress.info('Reached previously saved post. Stopping.');
           hitLastSaved = true;
           break;
         }
+
+        // Track the newest post (first one encountered) as the bookmark
+        if (!newestItemKey) newestItemKey = postId;
 
         // Pure extraction — no side effects
         const extracted = extractPost(postEl);
@@ -135,6 +124,11 @@ export const linkedinCrawler: SiteCrawler = {
       } else {
         staleRounds = 0;
       }
+    }
+
+    // Save the newest post as bookmark for next incremental crawl
+    if (newestItemKey) {
+      updateTaskConfig(task.id, { lastSavedItemKey: newestItemKey }).catch(() => {});
     }
 
     progress.info(`Crawl complete. Saved ${savedCount} posts.`);

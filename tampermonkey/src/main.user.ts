@@ -1,5 +1,5 @@
-// Subtle Crawler Indicator
 import { crawlers } from './crawlers/index.js';
+import { BACKEND_URL } from './lib/api.js';
 import { CrawlProgress } from './lib/progress.js';
 
 (function () {
@@ -8,16 +8,33 @@ import { CrawlProgress } from './lib/progress.js';
   // Only run in the top window, avoiding iframes (CSP/API issues)
   if (window.self !== window.top) return;
 
-  const BACKEND_URL = 'http://localhost:4242'; // Default, update for Tailscale
-
   function normalizeUrl(url: string): string {
     try {
       const parsed = new URL(url);
-      // Lowercase host (per spec), strip trailing slashes and query/hash
       return `${parsed.protocol}//${parsed.host.toLowerCase()}${parsed.pathname.replace(/\/+$/, '')}`;
     } catch {
       return url.replace(/\/+$/, '');
     }
+  }
+
+  /** Check whether a task is due for re-crawl based on its schedule. */
+  function isDue(task: any): boolean {
+    const config = task.config ? JSON.parse(task.config) : {};
+
+    // One-time tasks move to 'completed' after running, so if we see one here
+    // it's still pending and hasn't run yet — always due.
+    if (config.schedule === 'once') {
+      return true;
+    }
+
+    // Recurring tasks check the interval
+    const intervalHours = parseFloat(config.recrawlIntervalHours);
+    if (!intervalHours || intervalHours <= 0) return true;
+
+    const lastRun = task.updatedAt ? new Date(task.updatedAt + 'Z').getTime() : 0;
+    const now = Date.now();
+    const elapsedHours = (now - lastRun) / (1000 * 60 * 60);
+    return elapsedHours >= intervalHours;
   }
 
   async function checkTasks(): Promise<any[]> {
@@ -27,8 +44,7 @@ import { CrawlProgress } from './lib/progress.js';
         url: `${BACKEND_URL}/api/tasks/pending`,
         onload: (response) => {
           try {
-            const tasks = JSON.parse(response.responseText);
-            resolve(tasks);
+            resolve(JSON.parse(response.responseText));
           } catch (e) {
             reject(e);
           }
@@ -65,12 +81,12 @@ import { CrawlProgress } from './lib/progress.js';
     div.style.backgroundColor = 'red';
     div.style.cursor = 'pointer';
     div.style.zIndex = '9999';
-    div.title = `${tasks.length} pending crawls: ${tasks.map((t: any) => t.site).join(', ')}`;
+    div.title = `${tasks.length} due crawls: ${tasks.map((t: any) => t.name).join(', ')}`;
 
     div.onclick = () => {
-      const sites = tasks.map((t: any) => t.site).join(', ');
-      if (confirm(`Crawl needed for: ${sites}\n\nDo you want to go to the first one?`)) {
-        window.location.href = `https://${tasks[0].site}`;
+      const first = tasks[0];
+      if (first?.targetUrl && confirm(`Crawl due: ${first.name}\n\nGo to target URL?`)) {
+        window.location.href = first.targetUrl;
       }
     };
 
@@ -81,12 +97,13 @@ import { CrawlProgress } from './lib/progress.js';
     try {
       const tasks = await checkTasks();
       const currentUrl = window.location.href;
-
-      // Find a task that matches the current URL (normalized to handle trailing slashes, query params, etc.)
       const normalizedCurrent = normalizeUrl(currentUrl);
+
+      // Find a task that matches the current URL AND is due for re-crawl
       const task = tasks.find((t) => {
         if (!t.targetUrl) return false;
-        return normalizedCurrent.startsWith(normalizeUrl(t.targetUrl));
+        if (!normalizedCurrent.startsWith(normalizeUrl(t.targetUrl))) return false;
+        return isDue(t);
       });
 
       if (task) {
@@ -94,25 +111,29 @@ import { CrawlProgress } from './lib/progress.js';
         if (crawler) {
           console.log('[Crawler] Task matched! Running crawler for task:', task.id);
           const progress = new CrawlProgress(task.id);
+          const config = task.config ? JSON.parse(task.config) : {};
           try {
             await updateTaskStatus(task.id, 'running');
             await crawler.run(task, progress);
+            // Recurring tasks return to pending; one-time tasks complete
+            const nextStatus = config.schedule === 'once' ? 'completed' : 'pending';
+            await updateTaskStatus(task.id, nextStatus).catch(() => {});
           } catch (err) {
             console.error('[Crawler] Crawl failed:', err);
             progress.error(`Crawl failed: ${err}`);
-          } finally {
-            // Always return to pending so the task is ready for next visit
+            // On failure, always return to pending so it can be retried
             await updateTaskStatus(task.id, 'pending').catch(() => {});
           }
         }
       } else {
-        showIndicator(tasks);
+        // Show indicator only for due tasks (not ones recently crawled)
+        const dueTasks = tasks.filter(isDue);
+        showIndicator(dueTasks);
       }
     } catch (e) {
       console.error('[Crawler] Error checking tasks:', e);
     }
   }
 
-  // Check on load
   init();
 })();

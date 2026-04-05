@@ -1,30 +1,10 @@
 import type { SiteCrawler } from '../index.js';
-import { extractAllListings } from './extractors.js';
-
-function sendToServer(
-  taskId: string,
-  site: string,
-  itemKey: string | null,
-  payload: any,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    GM_xmlhttpRequest({
-      method: 'POST',
-      url: 'http://localhost:4242/api/collect',
-      headers: { 'Content-Type': 'application/json' },
-      data: JSON.stringify({ site, taskId, itemKey, payload }),
-      onload: (response) => {
-        if (response.status >= 200 && response.status < 300) resolve();
-        else reject(new Error(`Server returned ${response.status}`));
-      },
-      onerror: (err) => reject(err),
-    });
-  });
-}
+import { sendToServer } from '../../lib/api.js';
+import { extractAllListings, matchesCarMax } from './extractors.js';
 
 export const carmaxCrawler: SiteCrawler = {
   name: 'carmax',
-  match: (url) => url.includes('carmax.com/cars'),
+  match: matchesCarMax,
   run: async (task, progress) => {
     progress.info('Starting CarMax crawl');
 

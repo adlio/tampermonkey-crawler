@@ -1,4 +1,4 @@
-const BACKEND_URL = 'http://localhost:4242';
+import { BACKEND_URL } from './api.js';
 
 export type LogLevel = 'info' | 'warn' | 'error' | 'progress';
 

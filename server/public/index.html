@@ -51,7 +51,7 @@
         <!-- Tasks List -->
         <div class="space-y-4">
             <h2 class="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                Active Tasks
+                Tasks
                 <span id="task-count" class="bg-indigo-100 text-indigo-700 text-[10px] py-0.5 px-2 rounded-full font-bold">0</span>
             </h2>
             
@@ -112,7 +112,7 @@
 
         async function fetchTasks() {
             try {
-                const response = await fetch('/api/tasks/pending');
+                const response = await fetch('/api/tasks');
                 const tasks = await response.json();
                 
                 const container = document.getElementById('tasks-container');
@@ -126,8 +126,8 @@
                             <div class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 text-slate-300 mb-4">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                             </div>
-                            <h3 class="text-xl font-bold text-slate-900">No active tasks</h3>
-                            <p class="text-slate-500 mt-2 max-w-xs mx-auto text-sm leading-relaxed font-medium">Create a new task above to begin extracting data from the web.</p>
+                            <h3 class="text-xl font-bold text-slate-900">No tasks yet</h3>
+                            <p class="text-slate-500 mt-2 max-w-xs mx-auto text-sm leading-relaxed font-medium">Create a task to begin extracting data from the web.</p>
                         </div>
                     `;
                     return;
@@ -150,26 +150,36 @@
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                                             </a>
                                         ` : ''}
-                                        ${task.config && JSON.parse(task.config).lastSavedPostId ? `
-                                            <span class="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
-                                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                                Progress: ${JSON.parse(task.config).lastSavedPostId.split(':').pop()}
-                                            </span>
-                                        ` : ''}
+                                        ${(() => {
+                                            const cfg = task.config ? JSON.parse(task.config) : {};
+                                            const parts = [];
+                                            if (cfg.strategy) parts.push(`<span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">${cfg.strategy}</span>`);
+                                            if (cfg.recrawlIntervalHours) parts.push(`<span class="text-[10px] text-slate-400 font-bold">every ${cfg.recrawlIntervalHours}h</span>`);
+                                            if (cfg.lastSavedItemKey) parts.push(`<span class="text-[10px] text-slate-400 font-bold flex items-center gap-1"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>bookmarked</span>`);
+                                            return parts.join('');
+                                        })()}
                                     </div>
                                 </div>
                             </div>
                             <div class="flex flex-col items-end gap-2">
-                                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-100">
-                                    Pending
-                                </span>
+                                ${(() => {
+                                    const s = task.status;
+                                    const cfg = task.config ? JSON.parse(task.config) : {};
+                                    const isRecurring = cfg.schedule !== 'once';
+                                    if (s === 'completed') return '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">Completed</span>';
+                                    if (s === 'running') return '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100">Running</span>';
+                                    if (s === 'failed') return '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-600 border border-red-100">Failed</span>';
+                                    return isRecurring
+                                        ? '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-100">Recurring</span>'
+                                        : '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-100">Pending</span>';
+                                })()}
                             </div>
                         </div>
                         ${task.config ? `
                             <div class="mt-6 pt-5 border-t border-slate-100">
                                 <div class="grid grid-cols-2 gap-4">
                                     ${Object.entries(JSON.parse(task.config)).map(([key, val]) => {
-                                        if (['targetUrl', 'taskName'].includes(key)) return '';
+                                        if (['targetUrl', 'taskName', 'lastSavedItemKey', 'strategy', 'schedule', 'recrawlIntervalHours'].includes(key)) return '';
                                         return `
                                             <div>
                                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">${key}</span>
@@ -204,11 +214,21 @@
 
             def.fields.forEach(field => {
                 const div = document.createElement('div');
-                div.innerHTML = `
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">${field.label}</label>
-                    <input type="${field.type}" id="field-${field.id}" placeholder="${field.placeholder || ''}" 
-                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-300 shadow-sm">
-                `;
+                const labelHtml = `<label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">${field.label}</label>`;
+                if (field.type === 'select' && field.options) {
+                    const optionsHtml = field.options.map(opt =>
+                        `<option value="${opt.value}" ${opt.value === field.default ? 'selected' : ''}>${opt.label}</option>`
+                    ).join('');
+                    div.innerHTML = `${labelHtml}
+                        <select id="field-${field.id}" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm">
+                            ${optionsHtml}
+                        </select>`;
+                } else {
+                    const defaultVal = field.default != null ? ` value="${field.default}"` : '';
+                    div.innerHTML = `${labelHtml}
+                        <input type="${field.type === 'select' ? 'text' : field.type}" id="field-${field.id}" placeholder="${field.placeholder || ''}"${defaultVal}
+                            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-300 shadow-sm">`;
+                }
                 container.appendChild(div);
             });
         }
@@ -236,7 +256,7 @@
         }
 
         async function clearTasks() {
-            if (confirm('Clear all active tasks?')) {
+            if (confirm('Clear all tasks?')) {
                 await fetch('/api/tasks', { method: 'DELETE' });
                 fetchTasks();
             }

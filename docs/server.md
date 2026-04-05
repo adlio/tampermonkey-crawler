@@ -93,3 +93,4 @@ Environment variables (via `.env` at project root):
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `4242` | Server listen port |
+| `DB_PATH` | `./crawler.db` (project root) | Absolute path to the SQLite database file. Set this for Docker volume mounts. |

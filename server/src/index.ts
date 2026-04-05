@@ -1,7 +1,6 @@
-import 'dotenv/config';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import dotenv from 'dotenv';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
@@ -68,7 +67,12 @@ fastify.register(
     // GET /api/definitions
     api.get('/definitions', async () => crawlerDefinitions);
 
-    // GET /api/tasks/pending
+    // GET /api/tasks — all tasks (for the dashboard)
+    api.get('/tasks', async () => {
+      return db.prepare('SELECT * FROM tasks ORDER BY updatedAt DESC').all();
+    });
+
+    // GET /api/tasks/pending — only pending tasks (for the userscript)
     api.get('/tasks/pending', async () => {
       return db.prepare("SELECT * FROM tasks WHERE status = 'pending'").all();
     });
@@ -79,9 +83,11 @@ fastify.register(
       const definition = crawlerDefinitions.find((d) => d.id === siteId);
       if (!definition) return reply.status(400).send({ error: 'Invalid site' });
 
-      const id = Math.random().toString(36).substring(7);
+      const id = randomUUID();
       const name = config.taskName || definition.name;
-      const targetUrl = config.targetUrl || null;
+
+      // Derive targetUrl from crawler-specific fields
+      const targetUrl = definition.deriveTargetUrl?.(config) ?? config.targetUrl ?? null;
 
       db.prepare(
         'INSERT INTO tasks (id, site, name, targetUrl, config) VALUES (?, ?, ?, ?, ?)',
@@ -158,7 +164,6 @@ fastify.register(
           }
         }
 
-        // Update task timestamp
         db.prepare('UPDATE tasks SET updatedAt = CURRENT_TIMESTAMP WHERE id = ?').run(taskId);
 
         return { success: true };
@@ -187,6 +192,22 @@ fastify.register(
         | undefined;
       if (!blob) return reply.status(404).send({ error: 'Blob not found' });
       return reply.type(blob.mimeType).send(blob.data);
+    });
+
+    // POST /api/tasks/:id/config — merge fields into task config
+    api.post('/tasks/:id/config', async (request, _reply) => {
+      const { id } = request.params as { id: string };
+      const updates = request.body as Record<string, unknown>;
+      const task = db.prepare('SELECT config FROM tasks WHERE id = ?').get(id) as
+        | { config: string }
+        | undefined;
+      const config = JSON.parse(task?.config || '{}');
+      Object.assign(config, updates);
+      db.prepare('UPDATE tasks SET config = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?').run(
+        JSON.stringify(config),
+        id,
+      );
+      return { success: true };
     });
 
     // POST /api/tasks/:id/status

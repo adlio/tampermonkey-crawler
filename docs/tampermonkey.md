@@ -81,7 +81,7 @@ Image filtering: `IGNORE_IMAGE_PATTERNS` excludes profile photos, company logos,
 1. Waits up to 20 seconds for posts to appear (10 retries x 2s)
 2. Scroll-and-save loop: extract visible posts, send each to server, scroll, repeat
 3. Stops after 3 consecutive rounds with no new posts (`MAX_STALE_ROUNDS`)
-4. Stops if it encounters `lastSavedPostId` from a previous crawl (incremental)
+4. Stops if it encounters `lastSavedItemKey` from a previous crawl (incremental)
 5. Fetches content images as base64 via `GM_xmlhttpRequest` (cross-origin)
 6. Sends each post individually to `POST /api/collect` with `itemKey = postId`
 

@@ -6,13 +6,4 @@ export interface CarMaxRawListing {
   vin: string | null;
 }
 
-export interface ExtractionResult<T> {
-  items: T[];
-  errors: ExtractionError[];
-}
-
-export interface ExtractionError {
-  index: number;
-  selector: string;
-  message: string;
-}
+export type { ExtractionResult, ExtractionError } from '../../lib/types.js';
