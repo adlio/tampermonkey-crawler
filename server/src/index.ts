@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync } from 'fs';
+import { createHash } from 'crypto';
 import dotenv from 'dotenv';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
@@ -9,8 +9,6 @@ import fastifyStatic from '@fastify/static';
 import multipart from '@fastify/multipart';
 import db from './db.js';
 import { crawlerDefinitions } from './crawler-definitions.js';
-import { transformToMarkdown } from './transformers/linkedin.js';
-import { transformListing } from './transformers/carmax.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '../../.env') });
@@ -41,40 +39,27 @@ fastify.get('/tampermonkey.user.js', async (request, reply) => {
   return reply.sendFile('tampermonkey.user.js', tampermonkeyDist);
 });
 
-// Prepared statements for raw crawls and logs
+// Prepared statements
 const upsertRawCrawl = db.prepare(`
   INSERT INTO raw_crawls (taskId, site, itemKey, payload)
   VALUES (?, ?, ?, ?)
   ON CONFLICT(taskId, itemKey) DO UPDATE SET
-    payload = excluded.payload,
-    status = 'pending',
-    transformedAt = NULL
+    payload = excluded.payload
 `);
-
-const markRawCrawlTransformed = db.prepare(`
-  UPDATE raw_crawls SET status = 'transformed', transformedAt = CURRENT_TIMESTAMP
-  WHERE taskId = ? AND itemKey = ?
-`);
-
-const getRawCrawlId = db.prepare('SELECT id FROM raw_crawls WHERE taskId = ? AND itemKey = ?');
 
 const insertCrawlLog = db.prepare(`
   INSERT INTO crawl_logs (taskId, level, message, data)
   VALUES (?, ?, ?, ?)
 `);
 
-const upsertCarListing = db.prepare(`
-  INSERT INTO car_listings (
-    rawCrawlId, taskId, vin, sourceUrl, sourceSite, sourceListingId,
-    year, make, model, trim, mileage, price, priceCurrency, priceLabel, crawledAt
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  ON CONFLICT(vin, sourceSite) DO UPDATE SET
-    rawCrawlId = excluded.rawCrawlId,
-    sourceUrl = excluded.sourceUrl,
-    mileage = excluded.mileage,
-    price = excluded.price,
-    priceLabel = excluded.priceLabel,
-    updatedAt = CURRENT_TIMESTAMP
+const insertBlob = db.prepare(`
+  INSERT OR IGNORE INTO blobs (hash, data, mimeType, size)
+  VALUES (?, ?, ?, ?)
+`);
+
+const linkBlob = db.prepare(`
+  INSERT OR IGNORE INTO raw_crawl_blobs (rawCrawlId, blobHash, name, role)
+  VALUES (?, ?, ?, ?)
 `);
 
 // API Routes
@@ -95,7 +80,7 @@ fastify.register(
       if (!definition) return reply.status(400).send({ error: 'Invalid site' });
 
       const id = Math.random().toString(36).substring(7);
-      const name = config.missionName || definition.name;
+      const name = config.taskName || definition.name;
       const targetUrl = config.targetUrl || null;
 
       db.prepare(
@@ -105,7 +90,7 @@ fastify.register(
       return { success: true, id };
     });
 
-    // POST /api/collect — store raw crawl and immediately transform
+    // POST /api/collect — store raw crawl data and blobs
     api.post('/collect', async (request, reply) => {
       try {
         let payload: any = null;
@@ -152,100 +137,56 @@ fastify.register(
         if (!task) {
           return reply.status(404).send({ error: 'Task not found' });
         }
-        const config = JSON.parse(task.config || '{}');
-
-        // Derive itemKey from payload if not provided
-        if (!itemKey && site === 'linkedin' && payload?.postId) {
-          itemKey = payload.postId;
-        }
-        if (!itemKey && site === 'carmax' && payload?.vin) {
-          itemKey = payload.vin;
-        }
 
         // Store raw crawl (upsert by taskId + itemKey)
         upsertRawCrawl.run(taskId, site, itemKey, JSON.stringify(payload));
-        const rawRow = getRawCrawlId.get(taskId, itemKey) as { id: number } | undefined;
-        const rawCrawlId = rawRow?.id ?? 0;
 
-        // Site-specific transformation
-        if (site === 'linkedin') {
-          const vaultPath = (process.env.OBSIDIAN_VAULT_PATH || '').replace(/\/$/, '');
-          if (!vaultPath || !existsSync(vaultPath)) {
-            return reply.status(500).send({ error: `Obsidian Vault not found at "${vaultPath}"` });
+        // Process images into content-addressed blob storage
+        const rawRow = db
+          .prepare('SELECT id FROM raw_crawls WHERE taskId = ? AND itemKey = ?')
+          .get(taskId, itemKey) as { id: number } | undefined;
+        const rawCrawlId = rawRow?.id;
+
+        if (rawCrawlId && payload?.images) {
+          for (const img of payload.images) {
+            if (!img.data) continue;
+            const buffer = Buffer.from(img.data, 'base64');
+            const hash = createHash('sha256').update(buffer).digest('hex');
+            const mimeType = img.name?.endsWith('.png') ? 'image/png' : 'image/jpeg';
+            insertBlob.run(hash, buffer, mimeType, buffer.length);
+            linkBlob.run(rawCrawlId, hash, img.name || 'image.jpg', 'content-image');
           }
-          const subPath = (config.obsidianPath || 'Unsorted').replace(/^\//, '');
-          const tags = (config.tags || '')
-            .split(',')
-            .map((t: string) => t.trim())
-            .filter(Boolean);
-
-          // Decode base64 images from payload
-          const imageBuffers = (payload.images || [])
-            .filter((img: any) => img.data)
-            .map((img: any) => ({
-              name: img.name || 'image.jpg',
-              content: Buffer.from(img.data, 'base64'),
-            }));
-
-          transformToMarkdown(payload, imageBuffers, { vaultPath, subPath, tags });
-
-          // Track last saved post for incremental crawling
-          config.lastSavedPostId = payload.postId;
-          db.prepare('UPDATE tasks SET config = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?').run(
-            JSON.stringify(config),
-            taskId,
-          );
-        } else if (site === 'carmax') {
-          const normalized = transformListing(
-            {
-              title: payload.title,
-              price: payload.price,
-              mileage: payload.mileage,
-              link: payload.link,
-              vin: payload.vin,
-            },
-            rawCrawlId,
-            payload.timestamp || new Date().toISOString(),
-          );
-
-          upsertCarListing.run(
-            rawCrawlId,
-            taskId,
-            normalized.vin,
-            normalized.sourceUrl,
-            normalized.sourceSite,
-            normalized.sourceListingId,
-            normalized.year,
-            normalized.make,
-            normalized.model,
-            normalized.trim,
-            normalized.mileage,
-            normalized.price,
-            normalized.priceCurrency,
-            normalized.priceLabel,
-            normalized.crawledAt,
-          );
-
-          db.prepare('UPDATE tasks SET updatedAt = CURRENT_TIMESTAMP WHERE id = ?').run(taskId);
-        } else {
-          // Generic: store in data table for backward compatibility
-          db.prepare('INSERT INTO data (site, payload) VALUES (?, ?)').run(
-            site,
-            JSON.stringify(payload),
-          );
-          db.prepare('UPDATE tasks SET updatedAt = CURRENT_TIMESTAMP WHERE id = ?').run(taskId);
         }
 
-        // Mark raw crawl as transformed
-        if (itemKey) {
-          markRawCrawlTransformed.run(taskId, itemKey);
-        }
+        // Update task timestamp
+        db.prepare('UPDATE tasks SET updatedAt = CURRENT_TIMESTAMP WHERE id = ?').run(taskId);
 
         return { success: true };
       } catch (err: any) {
         console.error('[Collect] Critical Error:', err);
         return reply.status(500).send({ error: err.message });
       }
+    });
+
+    // GET /api/tasks/:id/items -- list raw crawl items for a task
+    api.get('/tasks/:id/items', async (request) => {
+      const { id } = request.params as { id: string };
+      const items = db
+        .prepare(
+          'SELECT id, taskId, site, itemKey, payload, createdAt FROM raw_crawls WHERE taskId = ? ORDER BY createdAt DESC',
+        )
+        .all(id);
+      return items;
+    });
+
+    // GET /api/blobs/:hash -- serve a blob by content hash
+    api.get('/blobs/:hash', async (request, reply) => {
+      const { hash } = request.params as { hash: string };
+      const blob = db.prepare('SELECT data, mimeType FROM blobs WHERE hash = ?').get(hash) as
+        | { data: Buffer; mimeType: string }
+        | undefined;
+      if (!blob) return reply.status(404).send({ error: 'Blob not found' });
+      return reply.type(blob.mimeType).send(blob.data);
     });
 
     // POST /api/tasks/:id/status

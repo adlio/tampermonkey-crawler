@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { extractPost, extractAllPosts, matchesLinkedIn } from '../linkedin.js';
+import { extractPost, extractAllPosts, matchesLinkedIn } from '../extractors.js';
 
 let doc: Document;
 

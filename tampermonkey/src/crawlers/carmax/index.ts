@@ -1,5 +1,5 @@
-import type { SiteCrawler } from './index.js';
-import { extractAllListings } from '../extractors/carmax.js';
+import type { SiteCrawler } from '../index.js';
+import { extractAllListings } from './extractors.js';
 
 function sendToServer(
   taskId: string,

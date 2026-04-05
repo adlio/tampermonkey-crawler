@@ -1,5 +1,5 @@
 // Subtle Crawler Indicator
-import { crawlers } from './sites/index.js';
+import { crawlers } from './crawlers/index.js';
 import { CrawlProgress } from './lib/progress.js';
 
 (function () {
@@ -92,7 +92,7 @@ import { CrawlProgress } from './lib/progress.js';
       if (task) {
         const crawler = crawlers.find((c) => c.match(currentUrl));
         if (crawler) {
-          console.log('[Crawler] Mission matched! Running crawler for task:', task.id);
+          console.log('[Crawler] Task matched! Running crawler for task:', task.id);
           const progress = new CrawlProgress(task.id);
           try {
             await updateTaskStatus(task.id, 'running');
@@ -101,7 +101,7 @@ import { CrawlProgress } from './lib/progress.js';
             console.error('[Crawler] Crawl failed:', err);
             progress.error(`Crawl failed: ${err}`);
           } finally {
-            // Always return to pending so the mission is ready for next visit
+            // Always return to pending so the task is ready for next visit
             await updateTaskStatus(task.id, 'pending').catch(() => {});
           }
         }

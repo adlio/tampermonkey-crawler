@@ -16,14 +16,14 @@
         <div class="flex items-center justify-between mb-8">
             <div>
                 <h1 class="text-3xl font-bold tracking-tight text-slate-900">Crawler Control</h1>
-                <p class="text-slate-500 mt-1 font-medium">Manage your browser-based data extraction missions.</p>
+                <p class="text-slate-500 mt-1 font-medium">Manage your browser-based data extraction tasks.</p>
             </div>
             <div class="flex gap-3">
                 <button onclick="clearTasks()" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-slate-200 bg-white hover:bg-slate-100 h-10 px-4 py-2 text-slate-900 shadow-sm">
                     Clear All
                 </button>
-                <button onclick="showMissionModal()" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-indigo-600 text-white hover:bg-indigo-700 h-10 px-4 py-2 shadow-sm">
-                    New Mission
+                <button onclick="showTaskModal()" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-indigo-600 text-white hover:bg-indigo-700 h-10 px-4 py-2 shadow-sm">
+                    New Task
                 </button>
             </div>
         </div>
@@ -48,26 +48,26 @@
             </div>
         </div>
 
-        <!-- Missions List -->
+        <!-- Tasks List -->
         <div class="space-y-4">
             <h2 class="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                Active Missions
+                Active Tasks
                 <span id="task-count" class="bg-indigo-100 text-indigo-700 text-[10px] py-0.5 px-2 rounded-full font-bold">0</span>
             </h2>
             
             <div id="tasks-container" class="grid gap-4">
                 <div class="bg-white rounded-xl border border-slate-200 p-8 text-center">
-                    <p class="text-slate-400 font-medium">Initializing missions...</p>
+                    <p class="text-slate-400 font-medium">Initializing tasks...</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- New Mission Modal -->
-    <div id="mission-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <!-- New Task Modal -->
+    <div id="task-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
             <div class="p-6 border-b border-slate-100">
-                <h3 class="text-xl font-bold">Launch New Mission</h3>
+                <h3 class="text-xl font-bold">Create New Task</h3>
                 <p class="text-slate-500 text-sm mt-1">Select a crawler and configure the parameters.</p>
             </div>
             
@@ -85,8 +85,8 @@
             </div>
 
             <div class="p-6 bg-slate-50 flex justify-end gap-3">
-                <button onclick="hideMissionModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
-                <button onclick="saveMission()" class="px-6 py-2 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md transition-all active:scale-95">Launch Mission</button>
+                <button onclick="hideTaskModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Cancel</button>
+                <button onclick="saveTask()" class="px-6 py-2 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md transition-all active:scale-95">Create Task</button>
             </div>
         </div>
     </div>
@@ -126,8 +126,8 @@
                             <div class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 text-slate-300 mb-4">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                             </div>
-                            <h3 class="text-xl font-bold text-slate-900">No active missions</h3>
-                            <p class="text-slate-500 mt-2 max-w-xs mx-auto text-sm leading-relaxed font-medium">Launch a new mission above to begin extracting data from the web.</p>
+                            <h3 class="text-xl font-bold text-slate-900">No active tasks</h3>
+                            <p class="text-slate-500 mt-2 max-w-xs mx-auto text-sm leading-relaxed font-medium">Create a new task above to begin extracting data from the web.</p>
                         </div>
                     `;
                     return;
@@ -169,7 +169,7 @@
                             <div class="mt-6 pt-5 border-t border-slate-100">
                                 <div class="grid grid-cols-2 gap-4">
                                     ${Object.entries(JSON.parse(task.config)).map(([key, val]) => {
-                                        if (['targetUrl', 'missionName'].includes(key)) return '';
+                                        if (['targetUrl', 'taskName'].includes(key)) return '';
                                         return `
                                             <div>
                                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">${key}</span>
@@ -187,9 +187,9 @@
             }
         }
 
-        function showMissionModal() { document.getElementById('mission-modal').classList.remove('hidden'); }
-        function hideMissionModal() { 
-            document.getElementById('mission-modal').classList.add('hidden');
+        function showTaskModal() { document.getElementById('task-modal').classList.remove('hidden'); }
+        function hideTaskModal() { 
+            document.getElementById('task-modal').classList.add('hidden');
             document.getElementById('template-fields').innerHTML = '';
             document.getElementById('crawler-select').value = '';
         }
@@ -213,7 +213,7 @@
             });
         }
 
-        async function saveMission() {
+        async function saveTask() {
             const siteId = document.getElementById('crawler-select').value;
             if (!siteId) return alert('Please select a crawler.');
 
@@ -230,13 +230,13 @@
             });
 
             if (resp.ok) {
-                hideMissionModal();
+                hideTaskModal();
                 fetchTasks();
             }
         }
 
         async function clearTasks() {
-            if (confirm('Clear all active missions?')) {
+            if (confirm('Clear all active tasks?')) {
                 await fetch('/api/tasks', { method: 'DELETE' });
                 fetchTasks();
             }

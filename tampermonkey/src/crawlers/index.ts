@@ -6,8 +6,8 @@ export interface SiteCrawler {
   run: (task: any, progress: CrawlProgress) => Promise<void>;
 }
 
-import { carmaxCrawler } from './carmax.js';
-import { linkedinCrawler } from './linkedin.js';
+import { carmaxCrawler } from './carmax/index.js';
+import { linkedinCrawler } from './linkedin/index.js';
 
 export const crawlers: SiteCrawler[] = [
   carmaxCrawler,

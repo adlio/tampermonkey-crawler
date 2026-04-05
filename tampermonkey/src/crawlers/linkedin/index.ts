@@ -1,5 +1,5 @@
-import type { SiteCrawler } from './index.js';
-import { extractPost, queryWithFallbacks, POST_SELECTORS } from '../extractors/linkedin.js';
+import type { SiteCrawler } from '../index.js';
+import { extractPost, queryWithFallbacks, POST_SELECTORS } from './extractors.js';
 
 async function fetchImageAsBase64(url: string): Promise<{ url: string; base64: string }> {
   return new Promise((resolve, reject) => {

@@ -1,108 +1,95 @@
 # Server
 
-Fastify HTTP server with SQLite storage. Lives in `server/`.
+Fastify HTTP server with SQLite storage. Accepts raw crawl data from the Tampermonkey userscript, stores it efficiently, and exposes APIs for both the userscript and external consumers.
 
-## Source files
+## Source tree
 
 ```
 server/
   src/
-    index.ts               Route handlers and server setup
-    db.ts                  SQLite connection and schema creation
-    crawler-definitions.ts Site configs for the dashboard form
-    types/index.ts         Task, RawCrawl, CrawlLog interfaces
-    transformers/
-      types.ts             NormalizedCarListing, TransformResult
-      linkedin.ts          Raw payload -> Obsidian markdown file
-      carmax.ts            Raw listing -> normalized car data
-      index.ts             Barrel exports
-      __tests__/           Transformer tests (vitest, node)
+    index.ts               Server setup, routes, static file serving
+    db.ts                  SQLite schema (better-sqlite3)
+    crawler-definitions.ts Dashboard form field definitions per crawler
   public/
-    index.html             Dashboard (Tailwind via CDN, vanilla JS)
+    index.html             Dashboard UI (single-file, Tailwind via CDN)
+  package.json             Workspace config (fastify, better-sqlite3, etc)
   tsconfig.json
-  vitest.config.ts
 ```
 
 ## Routes
 
 All API routes are registered under the `/api` prefix in `server/src/index.ts`.
 
-The main route is `POST /api/collect`. It receives data from the Tampermonkey userscript, stores a raw crawl, and immediately transforms it. The transformation branch is selected by the `site` field in the request body.
+### `POST /api/collect`
+Accepts raw crawl data from the userscript. Supports both JSON and multipart/form-data (for image uploads).
+
+Processing:
+1. Parse the payload (site, taskId, itemKey, payload, images)
+2. Upsert into `raw_crawls` by `(taskId, itemKey)` for deduplication
+3. Hash each image, store in `blobs` table if not already present
+4. Link blobs to the raw crawl via `raw_crawl_blobs`
+5. Update the task's `updatedAt` timestamp
+
+No transformation or formatting happens here -- just storage.
+
+### `GET /api/tasks/:id/items`
+Returns raw crawl items for a task. Each item includes its payload JSON and associated blob metadata.
+
+### `GET /api/blobs/:hash`
+Serves a blob by its content hash with the correct MIME type. Used by external consumers to download images.
 
 See [docs/architecture.md](architecture.md#api-endpoints) for the full endpoint reference.
 
-## Transformers
-
-Transformers are pure functions in `server/src/transformers/`. They take raw crawl data and produce a final output. The server calls them during the `/api/collect` handler.
-
-### LinkedIn (`transformers/linkedin.ts`)
-
-`transformToMarkdown(rawPayload, imageBuffers, options)` -> file path
-
-Takes the raw post payload, decoded image buffers, and options (`vaultPath`, `subPath`, `tags`). Writes:
-- A markdown file with YAML frontmatter matching the existing hand-curated Obsidian format
-- Images to an `attachments/` subdirectory
-
-Frontmatter fields: `title`, `source`, `author`, `repostedBy`, `content_type`, `type`, `fetched`, `date`, `postId`, `description`, `tags`.
-
-Reposts are formatted with a blockquote and attribution header. A `[View on LinkedIn]` footer is appended.
-
-Filenames are slug-based: `2025-12-15-first-few-words-of-the-title.md`.
-
-Only images that were successfully decoded (non-empty buffer) get written to disk and embedded in the markdown.
-
-### CarMax (`transformers/carmax.ts`)
-
-Three parsing helpers:
-- `parseCarTitle(title)` -- splits `"2022 Toyota Sienna XLE Premium"` into `{ year, make, model, trim }`
-- `parsePrice(priceStr)` -- `"$32,998"` -> `3299800` (cents)
-- `parseMileage(mileageStr)` -- `"45,231 mi"` -> `45231`, handles `"12K"` -> `12000`
-
-`transformListing(raw, rawCrawlId, timestamp)` -> `NormalizedCarListing`
-
-The server inserts the result into the `car_listings` table with upsert on `(vin, sourceSite)`.
-
 ## Crawler definitions
 
-`server/src/crawler-definitions.ts` defines the form fields shown in the dashboard when creating a new mission. Each definition has:
-- `id` -- matches the `site` field in tasks and raw_crawls
-- `name` -- display name
-- `fields` -- array of `{ id, label, type, placeholder }` for the form
+`server/src/crawler-definitions.ts` defines the dashboard form fields for each crawler:
 
-Currently defined: `linkedin` and `carmax`.
+```ts
+export const crawlerDefinitions: CrawlerDefinition[] = [
+  {
+    id: 'linkedin',
+    name: 'LinkedIn Activity Feed',
+    fields: [
+      { id: 'targetUrl', label: 'Feed URL', type: 'url', ... },
+      { id: 'taskName', label: 'Task Name', type: 'text', ... },
+    ]
+  },
+  {
+    id: 'carmax',
+    name: 'CarMax Search Results',
+    fields: [
+      { id: 'targetUrl', label: 'Search URL', type: 'url', ... },
+      { id: 'taskName', label: 'Task Name', type: 'text', ... },
+    ]
+  },
+];
+```
+
+When adding a new crawler, add a definition here so the dashboard can create tasks for it.
 
 ## Dashboard
 
 `server/public/index.html` is a single-file dashboard using Tailwind CSS (CDN) and vanilla JavaScript. It:
-- Fetches crawler definitions from `GET /api/definitions` to populate the "New Mission" form
-- Polls `GET /api/tasks/pending` every 5 seconds to show active missions
+- Fetches crawler definitions from `GET /api/definitions` to populate the "New Task" form
+- Polls `GET /api/tasks/pending` to show active tasks
 - Creates tasks via `POST /api/tasks`
 - Deletes all tasks via `DELETE /api/tasks`
 
-## Database
+## Storage
 
-SQLite via better-sqlite3. The database file is `crawler.db` at the project root (resolved from `server/src/db.ts` using `__dirname`).
+SQLite via better-sqlite3. The database file is `crawler.db` at the project root (created automatically).
 
-Schema is created with `CREATE TABLE IF NOT EXISTS` on import, so the database is auto-initialized on first server start. See [docs/architecture.md](architecture.md#database-schema) for table definitions.
+Key design decisions:
+- **Raw-first**: All crawled data is stored as JSON. This preserves the original data so it can be consumed and processed by external tools.
+- **Content-addressed blobs**: Images are stored by SHA-256 hash. If the same image appears in multiple posts, only one copy is stored.
+- **Deduplication**: `raw_crawls` has a unique index on `(taskId, itemKey)`. Re-crawling the same item updates the existing row rather than creating duplicates.
 
-Prepared statements for frequent operations (upsert raw crawl, insert log, upsert car listing) are defined at module scope in `server/src/index.ts` for performance.
+See [docs/architecture.md](architecture.md#database-schema) for table definitions.
 
 ## Configuration
 
-Environment variables loaded from `.env` at the project root:
+Environment variables (via `.env` at project root):
 
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `4242` | Server listen port |
-| `OBSIDIAN_VAULT_PATH` | (none) | Absolute path to Obsidian vault root. Required for LinkedIn transformer. |
-
-## Testing
-
-```bash
-make test-server
-```
-
-Tests are in `server/src/transformers/__tests__/`. They test the pure transformer functions without touching the database or HTTP layer.
-
-- `carmax.test.ts` -- parseCarTitle, parsePrice, parseMileage, transformListing
-- `linkedin.test.ts` -- markdown generation, frontmatter, reposts, image embedding, slug filenames

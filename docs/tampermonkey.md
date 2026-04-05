@@ -8,25 +8,26 @@ Vite-built Tampermonkey userscript that runs in the browser. Lives in `tampermon
 tampermonkey/
   src/
     main.user.ts             Entry point: task polling, URL matching, crawl dispatch
-    extractors/
-      types.ts               LinkedInRawPost, CarMaxRawListing, ExtractionResult
-      linkedin.ts            CSS selectors + pure DOM extraction for LinkedIn
-      carmax.ts              Pure DOM extraction for CarMax
-      index.ts               Barrel exports
-      __fixtures__/          HTML fixtures for jsdom tests
-        linkedin-feed.html   4 posts: original, repost, text-only, malformed
-        carmax-results.html  3 car tiles: full, full, missing-fields
-      __tests__/             Extraction tests (vitest, jsdom)
-        linkedin.test.ts
-        carmax.test.ts
-    sites/
+    crawlers/
       index.ts               SiteCrawler interface + crawler registry
-      linkedin.ts            LinkedIn crawl orchestration
-      carmax.ts              CarMax crawl orchestration
+      linkedin/
+        extractors.ts         CSS selectors + pure DOM extraction
+        index.ts              Crawl orchestration (scroll, extract, fetch images, send)
+        types.ts              LinkedInRawPost and related types
+        __fixtures__/         HTML fixtures for jsdom tests
+          linkedin-feed.html  4 posts: original, repost, text-only, malformed
+        __tests__/            Extraction tests (vitest, jsdom)
+          extractors.test.ts
+      carmax/
+        extractors.ts         Pure DOM extraction
+        index.ts              Crawl orchestration
+        types.ts              CarMaxRawListing and related types
+        __fixtures__/
+          carmax-results.html 3 car tiles: full, full, missing-fields
+        __tests__/
+          extractors.test.ts
     lib/
       progress.ts            CrawlProgress class
-    types/
-      index.ts               Task, CollectedData interfaces
   vite.config.ts             Userscript metadata (@connect, @grant, @match)
   vitest.config.ts           Test config (jsdom environment)
   tsconfig.json
@@ -39,40 +40,20 @@ tampermonkey/
 3. Compares the current URL against each task's `targetUrl` (normalized to strip trailing slashes, query params, etc.)
 4. If a match is found, looks up the site crawler by calling `crawler.match(url)`
 5. Creates a `CrawlProgress` instance and calls `crawler.run(task, progress)`
-6. Sets task status to `running` before the crawl and back to `pending` after (in a `finally` block, so missions are reusable)
+6. Sets task status to `running` before the crawl and back to `pending` after (in a `finally` block, so tasks are reusable)
 7. If no task matches, shows a red dot indicator with pending task count
 
-## Extractors
+## Crawlers
 
-Pure functions in `tampermonkey/src/extractors/`. They take a DOM element or document and return structured data. No network calls, no side effects, no `GM_xmlhttpRequest`.
+Each crawler is a self-contained directory under `tampermonkey/src/crawlers/`. A crawler has:
 
-### LinkedIn (`extractors/linkedin.ts`)
+- `extractors.ts` -- pure functions that parse DOM into structured data. No network calls, no side effects, no `GM_xmlhttpRequest`. Testable with jsdom.
+- `index.ts` -- orchestration that wires extractors to the real browser environment. Handles page waiting, scrolling, image fetching, and sending data to the server.
+- `types.ts` -- TypeScript interfaces for the crawler's data shapes.
+- `__fixtures__/` -- HTML snapshots of real site DOM for testing.
+- `__tests__/` -- vitest tests that load fixtures with jsdom and verify extraction.
 
-Exports:
-- `extractPost(element)` -> `LinkedInRawPost | null` -- single post extraction
-- `extractAllPosts(root)` -> `ExtractionResult<LinkedInRawPost>` -- batch extraction with error collection
-- `matchesLinkedIn(url)` -> `boolean`
-- `queryWithFallbacks(root, selectors)` -> `Element[]` -- tries selectors in order, returns first match
-- All selector constants (`POST_SELECTORS`, `TEXT_SELECTORS`, etc.)
-
-Selector strategy: multiple fallback selectors per data point, ordered from most stable (data attributes like `data-urn`) to least stable (generic class names). See [docs/troubleshooting.md](troubleshooting.md#which-selectors-survive-site-changes) for the durability ranking.
-
-Uses `textContent` instead of `innerText` and `getAttribute()` instead of property access for jsdom compatibility.
-
-Image filtering: `IGNORE_IMAGE_PATTERNS` excludes profile photos, company logos, and other UI chrome from the extracted `imageUrls`.
-
-### CarMax (`extractors/carmax.ts`)
-
-Exports:
-- `extractListing(card)` -> `CarMaxRawListing | null` -- single card extraction
-- `extractAllListings(root)` -> `ExtractionResult<CarMaxRawListing>` -- batch with errors
-- `matchesCarMax(url)` -> `boolean`
-
-Selectors: `.car-tile` container, `.car-tile--title`, `.car-tile--price`, `.car-tile--mileage`, `.car-tile--link`, `data-vin` attribute.
-
-## Site crawlers
-
-Orchestration layer in `tampermonkey/src/sites/`. Each crawler implements the `SiteCrawler` interface:
+All crawlers implement the `SiteCrawler` interface:
 
 ```typescript
 interface SiteCrawler {
@@ -82,10 +63,21 @@ interface SiteCrawler {
 }
 ```
 
-Crawlers are registered in `sites/index.ts`. The `match` function determines which crawler handles a given URL. The `run` function orchestrates the full crawl: wait for page load, extract data, fetch images, send to server.
+Crawlers are registered in `crawlers/index.ts`. The `match` function determines which crawler handles a given URL.
 
-### LinkedIn (`sites/linkedin.ts`)
+### LinkedIn (`crawlers/linkedin/`)
 
+**Extractors** (`extractors.ts`):
+- `extractPost(element)` -> `LinkedInRawPost | null`
+- `extractAllPosts(root)` -> `ExtractionResult<LinkedInRawPost>`
+- `queryWithFallbacks(root, selectors)` -> `Element[]`
+- All selector constants (`POST_SELECTORS`, `TEXT_SELECTORS`, etc.)
+
+Selector strategy: multiple fallback selectors per data point, ordered from most stable (data attributes like `data-urn`) to least stable (generic class names). See [docs/troubleshooting.md](troubleshooting.md#which-selectors-survive-site-changes) for the durability ranking.
+
+Image filtering: `IGNORE_IMAGE_PATTERNS` excludes profile photos, company logos, and other UI chrome from extracted `imageUrls`.
+
+**Orchestration** (`index.ts`):
 1. Waits up to 20 seconds for posts to appear (10 retries x 2s)
 2. Scroll-and-save loop: extract visible posts, send each to server, scroll, repeat
 3. Stops after 3 consecutive rounds with no new posts (`MAX_STALE_ROUNDS`)
@@ -93,10 +85,17 @@ Crawlers are registered in `sites/index.ts`. The `match` function determines whi
 5. Fetches content images as base64 via `GM_xmlhttpRequest` (cross-origin)
 6. Sends each post individually to `POST /api/collect` with `itemKey = postId`
 
-### CarMax (`sites/carmax.ts`)
+### CarMax (`crawlers/carmax/`)
 
+**Extractors** (`extractors.ts`):
+- `extractListing(card)` -> `CarMaxRawListing | null`
+- `extractAllListings(root)` -> `ExtractionResult<CarMaxRawListing>`
+
+Selectors: `.car-tile` container, `.car-tile--title`, `.car-tile--price`, `.car-tile--mileage`, `.car-tile--link`, `data-vin` attribute.
+
+**Orchestration** (`index.ts`):
 1. Waits 3 seconds for results to render
-2. Extracts all listings at once using `extractAllListings(document)`
+2. Extracts all listings at once
 3. Sends each listing individually to `POST /api/collect` with `itemKey = vin`
 
 ## CrawlProgress

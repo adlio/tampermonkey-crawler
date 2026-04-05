@@ -18,8 +18,8 @@ Open the browser console (F12) and look for:
 
 ### Where selectors live
 
-- LinkedIn: `tampermonkey/src/extractors/linkedin.ts` -- see `POST_SELECTORS`, `TEXT_SELECTORS`, `IMAGE_SELECTORS`, `ACTOR_SELECTORS`, `PERMALINK_SELECTORS`, `TIME_SELECTORS`
-- CarMax: `tampermonkey/src/extractors/carmax.ts` -- uses `.car-tile`, `.car-tile--title`, `.car-tile--price`, `.car-tile--mileage`, `.car-tile--link`
+- LinkedIn: `tampermonkey/src/crawlers/linkedin/extractors.ts` -- see `POST_SELECTORS`, `TEXT_SELECTORS`, `IMAGE_SELECTORS`, `ACTOR_SELECTORS`, `PERMALINK_SELECTORS`, `TIME_SELECTORS`
+- CarMax: `tampermonkey/src/crawlers/carmax/extractors.ts` -- uses `.car-tile`, `.car-tile--title`, `.car-tile--price`, `.car-tile--mileage`, `.car-tile--link`
 
 ### Which selectors survive site changes
 
@@ -73,7 +73,7 @@ Possible causes:
 
 ### Profile photos / logos appearing in saved content
 
-LinkedIn content images get mixed in with profile pictures and company logos. The `IGNORE_IMAGE_PATTERNS` array in `tampermonkey/src/extractors/linkedin.ts` filters these out:
+LinkedIn content images get mixed in with profile pictures and company logos. The `IGNORE_IMAGE_PATTERNS` array in `tampermonkey/src/crawlers/linkedin/extractors.ts` filters these out:
 
 ```ts
 const IGNORE_IMAGE_PATTERNS = [
@@ -87,10 +87,6 @@ const IGNORE_IMAGE_PATTERNS = [
 ```
 
 If a new pattern of UI-chrome images shows up, add a regex to this array.
-
-### Missing image embeds in saved Markdown
-
-The server only generates `![[image]]` embeds for images that were actually saved to disk. If an image failed to download on the Tampermonkey side, it will not appear in the payload, and the server will skip the embed. Check both the browser console (for fetch errors) and the server logs (for payload inspection).
 
 ---
 
@@ -140,8 +136,8 @@ The crawl runs but saves zero items.
 
 The crawler waits for elements to appear before extracting. If the page loads slowly:
 
-- LinkedIn: the retry loop in `tampermonkey/src/sites/linkedin.ts` tries 10 times with a 2-second delay (20 seconds total). On very slow connections, increase the attempt count or delay.
-- CarMax: uses a flat 3-second `setTimeout` in `tampermonkey/src/sites/carmax.ts`. Increase this if results have not rendered yet.
+- LinkedIn: the retry loop in `tampermonkey/src/crawlers/linkedin/index.ts` tries 10 times with a 2-second delay (20 seconds total). On very slow connections, increase the attempt count or delay.
+- CarMax: uses a flat 3-second `setTimeout` in `tampermonkey/src/crawlers/carmax/index.ts`. Increase this if results have not rendered yet.
 
 ### LinkedIn infinite scroll not loading
 
@@ -206,33 +202,47 @@ All log calls are fire-and-forget. They will not block the crawl or throw if the
 
 ---
 
-## 6. Adding a New Car Site
+## 6. Adding a New Site
 
 Step-by-step guide for adding, say, `carvana.com`:
 
-1. **Create the extractor** -- pure functions that parse DOM into structured data.
+1. **Create the crawler directory.**
    ```
-   tampermonkey/src/extractors/carvana.ts
+   tampermonkey/src/crawlers/carvana/
    ```
-   Export functions like `extractListings(doc: Document): CarListing[]`. Keep it free of side effects so it can be tested with jsdom.
 
-2. **Create an HTML fixture and tests.**
+2. **Create the extractors** -- pure functions that parse DOM into structured data.
+   ```
+   tampermonkey/src/crawlers/carvana/extractors.ts
+   ```
+   Export functions like `extractListings(doc: Document): CarvanaListing[]`. Keep it free of side effects so it can be tested with jsdom.
+
+3. **Create types.**
+   ```
+   tampermonkey/src/crawlers/carvana/types.ts
+   ```
+   Define the raw data shapes returned by the extractors.
+
+4. **Create an HTML fixture and tests.**
    Save a representative chunk of the site's DOM:
    ```
-   tampermonkey/src/extractors/__fixtures__/carvana-results.html
+   tampermonkey/src/crawlers/carvana/__fixtures__/carvana-results.html
    ```
-   Write tests that load this fixture with jsdom and verify the extractor returns the expected data.
+   Write tests that load this fixture with jsdom and verify the extractor returns the expected data:
+   ```
+   tampermonkey/src/crawlers/carvana/__tests__/extractors.test.ts
+   ```
 
-3. **Create the site crawler** -- wires the extractor to task execution and progress reporting.
+5. **Create the orchestration** -- wires the extractor to task execution and progress reporting.
    ```
-   tampermonkey/src/sites/carvana.ts
+   tampermonkey/src/crawlers/carvana/index.ts
    ```
    Implement the `SiteCrawler` interface (`match` + `run`). Use `CrawlProgress` for logging.
 
-4. **Register in the crawler index.**
-   Edit `tampermonkey/src/sites/index.ts`:
+6. **Register in the crawler index.**
+   Edit `tampermonkey/src/crawlers/index.ts`:
    ```ts
-   import { carvanaCrawler } from './carvana.js';
+   import { carvanaCrawler } from './carvana/index.js';
 
    export const crawlers: SiteCrawler[] = [
      carmaxCrawler,
@@ -241,10 +251,7 @@ Step-by-step guide for adding, say, `carvana.com`:
    ];
    ```
 
-5. **Add server-side transformer** (if needed).
-   If the new site outputs car listings in a different format, create `server/src/transformers/carvana.ts`. If the payload shape matches CarMax's, you can reuse the existing transformer by mapping fields.
-
-6. **Add crawler definition.**
+7. **Add crawler definition.**
    Edit `server/src/crawler-definitions.ts` and add an entry to the `crawlerDefinitions` array:
    ```ts
    {
@@ -252,15 +259,15 @@ Step-by-step guide for adding, say, `carvana.com`:
      name: 'Carvana Search Results',
      fields: [
        { id: 'targetUrl', label: 'Search URL', type: 'url', placeholder: 'https://www.carvana.com/cars/...' },
-       { id: 'missionName', label: 'Mission Name', type: 'text', placeholder: 'Carvana Sienna Hunt' },
+       { id: 'taskName', label: 'Task Name', type: 'text', placeholder: 'Carvana Sienna Hunt' },
      ]
    }
    ```
 
-7. **Add domain to `@connect`.**
+8. **Add domain to `@connect`.**
    Edit `tampermonkey/vite.config.ts` and add `'carvana.com'` to the `connect` array.
 
-8. **Build, test, install.**
+9. **Build, test, install.**
    ```bash
    make test
    make build
@@ -275,7 +282,7 @@ Step-by-step guide for adding, say, `carvana.com`:
 # All tests (server + tampermonkey)
 make test
 
-# Server transformer tests only
+# Server tests only
 make test-server
 
 # Tampermonkey extractor tests only (uses jsdom)

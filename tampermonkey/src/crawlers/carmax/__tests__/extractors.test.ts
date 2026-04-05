@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { extractListing, extractAllListings, matchesCarMax } from '../carmax.js';
+import { extractListing, extractAllListings, matchesCarMax } from '../extractors.js';
 
 let doc: Document;
 
