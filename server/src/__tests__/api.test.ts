@@ -294,6 +294,53 @@ describe('POST /api/collect', () => {
     expect(links[0].role).toBe('content-image');
   });
 
+  it('accepts multipart/form-data with file uploads', async () => {
+    const taskId = await createTask();
+
+    // 1x1 red PNG
+    const pngBuf = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
+      'base64',
+    );
+
+    const boundary = '----TestBoundary123';
+    const parts = [
+      `--${boundary}\r\nContent-Disposition: form-data; name="site"\r\n\r\ncarmax`,
+      `--${boundary}\r\nContent-Disposition: form-data; name="taskId"\r\n\r\n${taskId}`,
+      `--${boundary}\r\nContent-Disposition: form-data; name="itemKey"\r\n\r\nvin-multi`,
+      `--${boundary}\r\nContent-Disposition: form-data; name="payload"\r\n\r\n${JSON.stringify({ title: 'Multipart Car' })}`,
+      `--${boundary}\r\nContent-Disposition: form-data; name="image"; filename="car.png"\r\nContent-Type: image/png\r\n\r\n`,
+    ];
+
+    const body = Buffer.concat([
+      Buffer.from(parts.join('\r\n') + '\r\n'),
+      pngBuf,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+
+    const resp = await app.inject({
+      method: 'POST',
+      url: '/api/collect',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    });
+    expect(resp.statusCode).toBe(200);
+    expect(resp.json().success).toBe(true);
+
+    // Verify the item was stored with images attached by the multipart handler
+    const items = (await app.inject({ method: 'GET', url: `/api/tasks/${taskId}/items` })).json();
+    expect(items).toHaveLength(1);
+    const payload = JSON.parse(items[0].payload);
+    expect(payload.title).toBe('Multipart Car');
+    expect(payload.images).toHaveLength(1);
+    expect(payload.images[0].name).toBe('car.png');
+
+    // Verify blob was stored
+    const blobs = db.prepare('SELECT hash, mimeType FROM blobs').all() as any[];
+    expect(blobs).toHaveLength(1);
+    expect(blobs[0].mimeType).toBe('image/png');
+  });
+
   it('deduplicates identical blobs', async () => {
     const taskId = await createTask();
     const pngBase64 =
