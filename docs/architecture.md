@@ -52,6 +52,12 @@ SQLite file at `crawler.db` in the project root. Schema is auto-created on first
 ### `tasks`
 Crawl task definitions created from the dashboard. Tasks stay in `pending` status and are reusable -- the Tampermonkey script sets them to `running` during a crawl, then returns them to `pending` when done.
 
+The `config` JSON includes crawler-specific fields plus common scheduling fields:
+- `strategy` — crawl scope (`full`, `latest`, `date-range`)
+- `runMode` — `recurring` (returns to pending after each crawl) or `once` (moves to completed)
+- `recrawlIntervalHours` — minimum hours between recurring crawls
+- `lastSavedItemKey` — bookmark set by the crawler for incremental runs
+
 | Column | Type | Notes |
 |---|---|---|
 | id | TEXT PK | Random alphanumeric |
@@ -115,9 +121,11 @@ Progress and event log for crawl sessions.
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/definitions` | List crawler definitions (fields for the dashboard form) |
-| GET | `/api/tasks/pending` | List tasks with status `pending` |
+| GET | `/api/tasks` | List all tasks (dashboard) |
+| GET | `/api/tasks/pending` | List tasks with status `pending` (userscript) |
 | POST | `/api/tasks` | Create a new task |
 | POST | `/api/tasks/:id/status` | Update task status |
+| POST | `/api/tasks/:id/config` | Merge fields into task config |
 | DELETE | `/api/tasks` | Delete all tasks |
 
 ### Data collection (called by Tampermonkey)

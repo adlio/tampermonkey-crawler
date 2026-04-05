@@ -27,7 +27,9 @@ tampermonkey/
         __tests__/
           extractors.test.ts
     lib/
+      api.ts                 BACKEND_URL, sendToServer, updateTaskConfig, fetchPendingTasks, updateTaskStatus
       progress.ts            CrawlProgress class
+      types.ts               Task, TaskConfig, ExtractionResult, ExtractionError
   vite.config.ts             Userscript metadata (@connect, @grant, @match)
   vitest.config.ts           Test config (jsdom environment)
   tsconfig.json
@@ -39,8 +41,8 @@ tampermonkey/
 2. It fetches pending tasks from `GET /api/tasks/pending`
 3. Compares the current URL against each task's `targetUrl` (normalized to strip trailing slashes, query params, etc.)
 4. If a match is found, looks up the site crawler by calling `crawler.match(url)`
-5. Creates a `CrawlProgress` instance and calls `crawler.run(task, progress)`
-6. Sets task status to `running` before the crawl and back to `pending` after (in a `finally` block, so tasks are reusable)
+5. Parses task config once, creates a `CrawlProgress` instance, and calls `crawler.run(task, config, progress)`
+6. Sets task status to `running` before the crawl; returns to `pending` (recurring) or `completed` (one-time) after
 7. If no task matches, shows a red dot indicator with pending task count
 
 ## Crawlers
@@ -59,7 +61,7 @@ All crawlers implement the `SiteCrawler` interface:
 interface SiteCrawler {
   name: string;
   match: (url: string) => boolean;
-  run: (task: any, progress: CrawlProgress) => Promise<void>;
+  run: (task: Task, config: TaskConfig, progress: CrawlProgress) => Promise<void>;
 }
 ```
 

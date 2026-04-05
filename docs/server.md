@@ -49,21 +49,19 @@ export const crawlerDefinitions: CrawlerDefinition[] = [
   {
     id: 'linkedin',
     name: 'LinkedIn Activity Feed',
+    deriveTargetUrl: (config) => config.profileId ? `https://.../${config.profileId}/...` : null,
     fields: [
-      { id: 'targetUrl', label: 'Feed URL', type: 'url', ... },
-      { id: 'taskName', label: 'Task Name', type: 'text', ... },
+      { id: 'profileId', label: 'Profile ID', type: 'text', ... },
+      { id: 'strategy', label: 'Crawl Strategy', type: 'select', ... },
+      { id: 'runMode', label: 'Run Mode', type: 'select', ... },
+      { id: 'recrawlIntervalHours', label: 'Re-crawl Interval (hours)', type: 'number', ... },
     ]
   },
-  {
-    id: 'carmax',
-    name: 'CarMax Search Results',
-    fields: [
-      { id: 'targetUrl', label: 'Search URL', type: 'url', ... },
-      { id: 'taskName', label: 'Task Name', type: 'text', ... },
-    ]
-  },
+  // ...
 ];
 ```
+
+Each definition can optionally provide a `deriveTargetUrl` function that generates the target URL from config fields (e.g. LinkedIn derives it from `profileId`).
 
 When adding a new crawler, add a definition here so the dashboard can create tasks for it.
 
@@ -71,7 +69,7 @@ When adding a new crawler, add a definition here so the dashboard can create tas
 
 `server/public/index.html` is a single-file dashboard using Tailwind CSS (CDN) and vanilla JavaScript. It:
 - Fetches crawler definitions from `GET /api/definitions` to populate the "New Task" form
-- Polls `GET /api/tasks/pending` to show active tasks
+- Polls `GET /api/tasks` to show all tasks with status badges
 - Creates tasks via `POST /api/tasks`
 - Deletes all tasks via `DELETE /api/tasks`
 
