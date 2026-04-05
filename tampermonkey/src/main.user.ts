@@ -1,5 +1,6 @@
 // Subtle Crawler Indicator
 import { crawlers } from './sites/index.js';
+import { CrawlProgress } from './lib/progress.js';
 
 (function () {
   'use strict';
@@ -69,8 +70,6 @@ import { crawlers } from './sites/index.js';
     div.onclick = () => {
         const sites = tasks.map((t: any) => t.site).join(', ');
         if (confirm(`Crawl needed for: ${sites}\n\nDo you want to go to the first one?`)) {
-            // Simple logic to navigate to the first pending site's URL if we know it.
-            // For now, let's just go to the site name (assuming it's a domain)
             window.location.href = `https://${tasks[0].site}`;
         }
     };
@@ -94,11 +93,13 @@ import { crawlers } from './sites/index.js';
         const crawler = crawlers.find(c => c.match(currentUrl));
         if (crawler) {
           console.log('[Crawler] Mission matched! Running crawler for task:', task.id);
+          const progress = new CrawlProgress(task.id);
           try {
             await updateTaskStatus(task.id, 'running');
-            await crawler.run(task);
+            await crawler.run(task, progress);
           } catch (err) {
             console.error('[Crawler] Crawl failed:', err);
+            progress.error(`Crawl failed: ${err}`);
           } finally {
             // Always return to pending so the mission is ready for next visit
             await updateTaskStatus(task.id, 'pending').catch(() => {});

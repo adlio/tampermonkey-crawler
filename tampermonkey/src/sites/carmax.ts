@@ -1,49 +1,59 @@
-import { SiteCrawler } from './index.js';
+import type { SiteCrawler } from './index.js';
+import type { CrawlProgress } from '../lib/progress.js';
+import { extractAllListings } from '../extractors/carmax.js';
+
+function sendToServer(taskId: string, site: string, itemKey: string | null, payload: any): Promise<void> {
+  return new Promise((resolve, reject) => {
+    GM_xmlhttpRequest({
+      method: 'POST',
+      url: 'http://localhost:4242/api/collect',
+      headers: { 'Content-Type': 'application/json' },
+      data: JSON.stringify({ site, taskId, itemKey, payload }),
+      onload: (response) => {
+        if (response.status >= 200 && response.status < 300) resolve();
+        else reject(new Error(`Server returned ${response.status}`));
+      },
+      onerror: (err) => reject(err),
+    });
+  });
+}
 
 export const carmaxCrawler: SiteCrawler = {
+  name: 'carmax',
   match: (url) => url.includes('carmax.com/cars'),
-  run: async (task) => {
-    console.log('[CarMax] Starting crawl for task:', task.id);
-    const config = task.config ? JSON.parse(task.config) : {};
-    
+  run: async (task, progress) => {
+    progress.info('Starting CarMax crawl');
+
     // Wait for results to load
     await new Promise(r => setTimeout(r, 3000));
 
-    const carCards = document.querySelectorAll('.car-tile');
-    const results = Array.from(carCards).map(card => {
-        const title = card.querySelector('.car-tile--title')?.textContent?.trim();
-        const price = card.querySelector('.car-tile--price')?.textContent?.trim();
-        const mileage = card.querySelector('.car-tile--mileage')?.textContent?.trim();
-        const link = (card.querySelector('.car-tile--link') as HTMLAnchorElement)?.href;
-        const vin = card.getAttribute('data-vin');
+    const { items, errors } = extractAllListings(document);
 
-        return { title, price, mileage, link, vin };
-    });
+    progress.setFound(items.length);
 
-    console.log(`[CarMax] Found ${results.length} cars.`);
+    for (const err of errors) {
+      progress.warn(`Extraction error at index ${err.index}: ${err.message}`);
+    }
 
-    await new Promise((resolve, reject) => {
-        GM_xmlhttpRequest({
-            method: 'POST',
-            url: 'http://localhost:4242/api/collect',
-            headers: { 'Content-Type': 'application/json' },
-            data: JSON.stringify({
-                site: 'carmax',
-                taskId: task.id,
-                payload: {
-                    searchConfig: config,
-                    results,
-                    timestamp: new Date().toISOString()
-                }
-            }),
-            onload: (response) => {
-                if (response.status >= 200 && response.status < 300) resolve(response);
-                else reject(new Error(`Server returned ${response.status}`));
-            },
-            onerror: (err) => reject(err)
-        });
-    });
+    if (items.length === 0) {
+      progress.warn('No listings found on page');
+      return;
+    }
 
-    console.log(`[CarMax] Saved results for task: ${task.id}`);
+    const timestamp = new Date().toISOString();
+    let savedCount = 0;
+
+    for (const listing of items) {
+      const payload = { ...listing, timestamp };
+      try {
+        await sendToServer(task.id, 'carmax', listing.vin, payload);
+        savedCount++;
+        progress.itemSaved();
+      } catch (err) {
+        progress.itemError(`Failed to save listing ${listing.vin}: ${err}`);
+      }
+    }
+
+    progress.info(`Crawl complete. Saved ${savedCount} of ${items.length} listings.`);
   },
 };

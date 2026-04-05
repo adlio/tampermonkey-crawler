@@ -1,6 +1,9 @@
+import type { CrawlProgress } from '../lib/progress.js';
+
 export interface SiteCrawler {
+  name: string;
   match: (url: string) => boolean;
-  run: (task: any) => Promise<void>;
+  run: (task: any, progress: CrawlProgress) => Promise<void>;
 }
 
 import { carmaxCrawler } from './carmax.js';

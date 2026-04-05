@@ -27,6 +27,7 @@ export const crawlerDefinitions: CrawlerDefinition[] = [
     id: 'carmax',
     name: 'CarMax Search Results',
     fields: [
+      { id: 'targetUrl', label: 'Search URL', type: 'url', placeholder: 'https://www.carmax.com/cars/toyota-sienna' },
       { id: 'make', label: 'Make', type: 'text', placeholder: 'Toyota' },
       { id: 'model', label: 'Model', type: 'text', placeholder: 'Sienna' },
       { id: 'zip', label: 'ZIP Code', type: 'number', placeholder: '90210' },

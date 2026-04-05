@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { resolve, join, dirname } from 'path';
+import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { existsSync } from 'fs';
 import dotenv from 'dotenv';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
@@ -9,6 +9,8 @@ import fastifyStatic from '@fastify/static';
 import multipart from '@fastify/multipart';
 import db from './db.js';
 import { crawlerDefinitions } from './crawler-definitions.js';
+import { transformToMarkdown } from './transformers/linkedin.js';
+import { transformListing } from './transformers/carmax.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '../../.env') });
@@ -39,15 +41,52 @@ fastify.get('/tampermonkey.user.js', async (request, reply) => {
   return reply.sendFile('tampermonkey.user.js', tampermonkeyDist);
 });
 
+// Prepared statements for raw crawls and logs
+const upsertRawCrawl = db.prepare(`
+  INSERT INTO raw_crawls (taskId, site, itemKey, payload)
+  VALUES (?, ?, ?, ?)
+  ON CONFLICT(taskId, itemKey) DO UPDATE SET
+    payload = excluded.payload,
+    status = 'pending',
+    transformedAt = NULL
+`);
+
+const markRawCrawlTransformed = db.prepare(`
+  UPDATE raw_crawls SET status = 'transformed', transformedAt = CURRENT_TIMESTAMP
+  WHERE taskId = ? AND itemKey = ?
+`);
+
+const getRawCrawlId = db.prepare(
+  "SELECT id FROM raw_crawls WHERE taskId = ? AND itemKey = ?"
+);
+
+const insertCrawlLog = db.prepare(`
+  INSERT INTO crawl_logs (taskId, level, message, data)
+  VALUES (?, ?, ?, ?)
+`);
+
+const upsertCarListing = db.prepare(`
+  INSERT INTO car_listings (
+    rawCrawlId, taskId, vin, sourceUrl, sourceSite, sourceListingId,
+    year, make, model, trim, mileage, price, priceCurrency, priceLabel, crawledAt
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(vin, sourceSite) DO UPDATE SET
+    rawCrawlId = excluded.rawCrawlId,
+    sourceUrl = excluded.sourceUrl,
+    mileage = excluded.mileage,
+    price = excluded.price,
+    priceLabel = excluded.priceLabel,
+    updatedAt = CURRENT_TIMESTAMP
+`);
+
 // API Routes
 fastify.register(async (api) => {
   // GET /api/definitions
   api.get('/definitions', async () => crawlerDefinitions);
 
   // GET /api/tasks/pending
-  api.get('/tasks/pending', async (request, reply) => {
-    const pendingTasks = db.prepare("SELECT * FROM tasks WHERE status = 'pending'").all();
-    return pendingTasks;
+  api.get('/tasks/pending', async () => {
+    return db.prepare("SELECT * FROM tasks WHERE status = 'pending'").all();
   });
 
   // POST /api/tasks
@@ -66,163 +105,126 @@ fastify.register(async (api) => {
     return { success: true, id };
   });
 
-  // POST /api/collect
+  // POST /api/collect — store raw crawl and immediately transform
   api.post('/collect', async (request, reply) => {
     try {
       let payload: any = null;
       let site: string = '';
       let taskId: string = '';
-      const images: { name: string; content: Buffer }[] = [];
+      let itemKey: string | null = null;
 
       const contentType = request.headers['content-type'];
-      console.log(`[Collect] Content-Type: ${contentType}`);
-      
+
       if (contentType?.includes('multipart/form-data')) {
         const parts = request.parts();
+        const images: { name: string; content: Buffer }[] = [];
         for await (const part of parts) {
           if (part.type === 'file') {
             const buffer = await part.toBuffer();
             images.push({ name: part.filename, content: buffer });
-            console.log(`[Collect] Received file: ${part.filename}`);
           } else {
             if (part.fieldname === 'site') site = (part.value as string);
             if (part.fieldname === 'taskId') taskId = (part.value as string);
+            if (part.fieldname === 'itemKey') itemKey = (part.value as string) || null;
             if (part.fieldname === 'payload') payload = JSON.parse(part.value as string);
-            console.log(`[Collect] Received field: ${part.fieldname}`);
           }
+        }
+        // Attach multipart images to payload
+        if (images.length > 0 && payload) {
+          payload.images = images.map(img => ({
+            name: img.name,
+            data: img.content.toString('base64'),
+          }));
         }
       } else {
         const body = request.body as any;
         site = body.site;
         taskId = body.taskId;
         payload = body.payload;
+        itemKey = body.itemKey || null;
       }
 
-      console.log(`[Collect] Processing for site: ${site}, taskId: ${taskId}`);
-
       if (!taskId) {
-        console.error('[Collect] Missing taskId');
         return reply.status(400).send({ error: 'Missing taskId' });
       }
 
       const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as any;
       if (!task) {
-        console.error(`[Collect] Task not found: ${taskId}`);
         return reply.status(404).send({ error: 'Task not found' });
       }
       const config = JSON.parse(task.config || '{}');
 
-      if (site === 'linkedin') {
-        let vaultPath = process.env.OBSIDIAN_VAULT_PATH || '';
-        vaultPath = vaultPath.replace(/\/$/, '');
+      // Derive itemKey from payload if not provided
+      if (!itemKey && site === 'linkedin' && payload?.postId) {
+        itemKey = payload.postId;
+      }
+      if (!itemKey && site === 'carmax' && payload?.vin) {
+        itemKey = payload.vin;
+      }
 
+      // Store raw crawl (upsert by taskId + itemKey)
+      upsertRawCrawl.run(taskId, site, itemKey, JSON.stringify(payload));
+      const rawRow = getRawCrawlId.get(taskId, itemKey) as { id: number } | undefined;
+      const rawCrawlId = rawRow?.id ?? 0;
+
+      // Site-specific transformation
+      if (site === 'linkedin') {
+        const vaultPath = (process.env.OBSIDIAN_VAULT_PATH || '').replace(/\/$/, '');
         if (!vaultPath || !existsSync(vaultPath)) {
-          console.error(`[Collect] Vault path does not exist: "${vaultPath}"`);
           return reply.status(500).send({ error: `Obsidian Vault not found at "${vaultPath}"` });
         }
-
         const subPath = (config.obsidianPath || 'Unsorted').replace(/^\//, '');
-        const outputDir = join(vaultPath, subPath);
-        const resourceDir = join(outputDir, 'attachments');
+        const tags = (config.tags || '').split(',').map((t: string) => t.trim()).filter(Boolean);
 
-        console.log(`[Collect] Ensuring directories exist: ${outputDir}`);
-        mkdirSync(outputDir, { recursive: true });
-        mkdirSync(resourceDir, { recursive: true });
+        // Decode base64 images from payload
+        const imageBuffers = (payload.images || [])
+          .filter((img: any) => img.data)
+          .map((img: any) => ({
+            name: img.name || 'image.jpg',
+            content: Buffer.from(img.data, 'base64'),
+          }));
 
-        // Handle images from multipart uploads or base64-encoded JSON payload
-        const imageBuffers: { name: string; content: Buffer }[] = [];
-        if (images.length > 0) {
-          imageBuffers.push(...images);
-        } else if (payload.images) {
-          for (const img of payload.images) {
-            if (img.data) {
-              imageBuffers.push({
-                name: img.name || 'image.jpg',
-                content: Buffer.from(img.data, 'base64'),
-              });
-            }
-          }
-        }
+        transformToMarkdown(payload, imageBuffers, { vaultPath, subPath, tags });
 
-        // Only write images that actually have content
-        const savedImageNames: Set<string> = new Set();
-        imageBuffers.forEach(img => {
-          writeFileSync(join(resourceDir, img.name), img.content);
-          savedImageNames.add(img.name);
-        });
-
-        // Build slug-based filename like: 2025-12-20-first-few-words.md
-        const postDate = payload.postDate
-          ? new Date(payload.postDate)
-          : new Date(payload.timestamp);
-        const dateStr = postDate.toISOString().split('T')[0];
-        const slug = (payload.title || '')
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-|-$/g, '')
-          .substring(0, 60)
-          .replace(/-$/, '');
-        const fileName = slug ? `${dateStr}-${slug}.md` : `${dateStr}-${payload.postId.replace(/[^a-z0-9]/gi, '-')}.md`;
-
-        const isRepost = !!payload.repostedBy;
-        const tags = (config.tags || '')
-          .split(',')
-          .map((t: string) => t.trim())
-          .filter(Boolean);
-
-        // Frontmatter matching the existing hand-curated format
-        let frontmatter = `---\n`;
-        frontmatter += `title: "${(payload.title || '').replace(/"/g, '\\"')}"\n`;
-        frontmatter += `source: "${payload.postUrl || ''}"\n`;
-        if (payload.author) frontmatter += `author: "${payload.author}"\n`;
-        if (isRepost) frontmatter += `repostedBy: "${payload.repostedBy}"\n`;
-        frontmatter += `content_type: linkedin-post\n`;
-        frontmatter += `type: ${isRepost ? 'repost' : 'original'}\n`;
-        frontmatter += `fetched: ${new Date(payload.timestamp).toISOString().split('T')[0]}\n`;
-        if (payload.postDate) frontmatter += `date: ${dateStr}\n`;
-        frontmatter += `postId: ${payload.postId}\n`;
-        frontmatter += `description: ""\n`;
-        if (tags.length > 0) {
-          frontmatter += `tags:\n`;
-          tags.forEach((tag: string) => { frontmatter += `  - "${tag}"\n`; });
-        }
-        frontmatter += `---\n`;
-
-        // Only reference images that were actually saved to disk
-        const imageEmbeds: string[] = (payload.images || [])
-          .filter((img: any) => savedImageNames.has(img.name))
-          .map((img: any) => `![[${img.name}]]`);
-
-        let content = frontmatter + '\n';
-
-        if (isRepost) {
-          content += `**${payload.repostedBy}** reposted from **${payload.author || 'unknown'}**:\n\n`;
-          content += `> ${payload.text.replace(/\n/g, '\n> ')}\n`;
-          if (imageEmbeds.length > 0) {
-            content += `>\n`;
-            imageEmbeds.forEach((embed: string) => { content += `> ${embed}\n`; });
-          }
-        } else {
-          content += `${payload.text}\n`;
-          if (imageEmbeds.length > 0) {
-            content += `\n`;
-            imageEmbeds.forEach((embed: string) => { content += `${embed}\n`; });
-          }
-        }
-
-        content += `\n---\n[View on LinkedIn](${payload.postUrl || ''})\n`;
-
-        writeFileSync(join(outputDir, fileName), content);
-
+        // Track last saved post for incremental crawling
         config.lastSavedPostId = payload.postId;
         db.prepare("UPDATE tasks SET config = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?")
           .run(JSON.stringify(config), taskId);
+
+      } else if (site === 'carmax') {
+        const normalized = transformListing(
+          {
+            title: payload.title,
+            price: payload.price,
+            mileage: payload.mileage,
+            link: payload.link,
+            vin: payload.vin,
+          },
+          rawCrawlId,
+          payload.timestamp || new Date().toISOString(),
+        );
+
+        upsertCarListing.run(
+          rawCrawlId, taskId,
+          normalized.vin, normalized.sourceUrl, normalized.sourceSite, normalized.sourceListingId,
+          normalized.year, normalized.make, normalized.model, normalized.trim,
+          normalized.mileage, normalized.price, normalized.priceCurrency, normalized.priceLabel,
+          normalized.crawledAt,
+        );
+
+        db.prepare("UPDATE tasks SET updatedAt = CURRENT_TIMESTAMP WHERE id = ?").run(taskId);
+
       } else {
-        const tableName = config.tableName || 'data';
-        db.prepare(`INSERT INTO data (site, payload) VALUES (?, ?)`).run(site, JSON.stringify(payload));
+        // Generic: store in data table for backward compatibility
+        db.prepare("INSERT INTO data (site, payload) VALUES (?, ?)").run(site, JSON.stringify(payload));
         db.prepare("UPDATE tasks SET updatedAt = CURRENT_TIMESTAMP WHERE id = ?").run(taskId);
       }
-      
+
+      // Mark raw crawl as transformed
+      if (itemKey) {
+        markRawCrawlTransformed.run(taskId, itemKey);
+      }
+
       return { success: true };
     } catch (err: any) {
       console.error('[Collect] Critical Error:', err);
@@ -240,6 +242,27 @@ fastify.register(async (api) => {
     }
     db.prepare("UPDATE tasks SET status = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?").run(status, id);
     return { success: true };
+  });
+
+  // POST /api/tasks/:id/log — fire-and-forget log from Tampermonkey
+  api.post('/tasks/:id/log', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { level, message, data } = request.body as {
+      level: string;
+      message: string;
+      data?: Record<string, unknown>;
+    };
+    insertCrawlLog.run(id, level || 'info', message || '', data ? JSON.stringify(data) : null);
+    return { success: true };
+  });
+
+  // GET /api/tasks/:id/logs — retrieve crawl logs for a task
+  api.get('/tasks/:id/logs', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const logs = db.prepare(
+      "SELECT * FROM crawl_logs WHERE taskId = ? ORDER BY createdAt DESC LIMIT 200"
+    ).all(id);
+    return logs;
   });
 
   // DELETE /api/tasks
