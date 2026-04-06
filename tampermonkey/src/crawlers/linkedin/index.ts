@@ -29,6 +29,7 @@ async function fetchImageAsBase64(url: string): Promise<{ url: string; base64: s
 
 export const linkedinCrawler: SiteCrawler = {
   name: 'linkedin',
+  domain: 'linkedin.com',
   match: matchesLinkedIn,
   run: async (task, config, progress) => {
     progress.info('Starting LinkedIn crawl');

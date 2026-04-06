@@ -8,8 +8,11 @@ export default defineConfig({
       userscript: {
         name: 'Pluggable Crawler',
         namespace: 'npm/tampermonkey-crawler',
-        match: ['*://*/*'], // Subtle indicator on every page
-        grant: ['GM_xmlhttpRequest'],
+        match: [
+          '*://*.linkedin.com/*',
+          '*://*.carmax.com/*',
+        ],
+        grant: ['GM_xmlhttpRequest', 'GM_setValue', 'GM_getValue'],
         connect: ['localhost', '127.0.0.1', 'licdn.com'],
       },
       build: {

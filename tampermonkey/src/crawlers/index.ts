@@ -3,6 +3,9 @@ import type { Task, TaskConfig } from '../lib/types.js';
 
 export interface SiteCrawler {
   name: string;
+  /** Domain this crawler operates on (e.g. "linkedin.com") */
+  domain: string;
+  /** Does this URL match a page where the crawler can actually run? */
   match: (url: string) => boolean;
   run: (task: Task, config: TaskConfig, progress: CrawlProgress) => Promise<void>;
 }
