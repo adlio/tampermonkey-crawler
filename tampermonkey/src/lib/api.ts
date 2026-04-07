@@ -18,7 +18,7 @@ export function sendToServer(
         if (response.status >= 200 && response.status < 300) resolve();
         else reject(new Error(`Server returned ${response.status}: ${response.responseText}`));
       },
-      onerror: (err) => reject(err),
+      onerror: (err) => reject(new Error(`Network error: ${JSON.stringify(err)}`)),
     });
   });
 }
@@ -31,16 +31,16 @@ export function updateTaskConfig(taskId: string, updates: Record<string, unknown
       headers: { 'Content-Type': 'application/json' },
       data: JSON.stringify(updates),
       onload: () => resolve(),
-      onerror: (err) => reject(err),
+      onerror: (err) => reject(new Error(`Network error: ${JSON.stringify(err)}`)),
     });
   });
 }
 
-export function fetchPendingTasks(): Promise<Task[]> {
+export function fetchActionableTasks(): Promise<Task[]> {
   return new Promise((resolve, reject) => {
     GM_xmlhttpRequest({
       method: 'GET',
-      url: `${BACKEND_URL}/api/tasks/pending`,
+      url: `${BACKEND_URL}/api/tasks/actionable`,
       onload: (response) => {
         try {
           resolve(JSON.parse(response.responseText));
@@ -48,7 +48,7 @@ export function fetchPendingTasks(): Promise<Task[]> {
           reject(e);
         }
       },
-      onerror: (err) => reject(err),
+      onerror: (err) => reject(new Error(`Network error: ${JSON.stringify(err)}`)),
     });
   });
 }
@@ -61,7 +61,7 @@ export function updateTaskStatus(taskId: string, status: string): Promise<void> 
       headers: { 'Content-Type': 'application/json' },
       data: JSON.stringify({ status }),
       onload: () => resolve(),
-      onerror: (err) => reject(err),
+      onerror: (err) => reject(new Error(`Network error: ${JSON.stringify(err)}`)),
     });
   });
 }

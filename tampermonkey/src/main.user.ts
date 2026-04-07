@@ -1,6 +1,6 @@
 import { crawlers } from './crawlers/index.js';
 import type { SiteCrawler } from './crawlers/index.js';
-import { fetchPendingTasks, updateTaskStatus } from './lib/api.js';
+import { fetchActionableTasks, updateTaskStatus } from './lib/api.js';
 import { CrawlProgress } from './lib/progress.js';
 import type { Task, TaskConfig } from './lib/types.js';
 
@@ -9,38 +9,17 @@ const GM_PENDING_TASK_KEY = 'pendingCrawlTaskId';
 (function () {
   'use strict';
 
-  // Only run in the top window, avoiding iframes (CSP/API issues)
-  if (window.self !== window.top) return;
+  let crawlInProgress = false;
+
+  console.log('[Crawler] Script loaded on', window.location.hostname);
 
   function parseConfig(task: Task): TaskConfig {
     return task.config ? JSON.parse(task.config) : {};
   }
 
-  /** Check whether a task is due for re-crawl based on its runMode. */
-  function isDue(task: Task): boolean {
-    const config = parseConfig(task);
-
-    if (config.runMode === 'once') {
-      return true;
-    }
-
-    const intervalHours = parseFloat(String(config.recrawlIntervalHours));
-    if (!intervalHours || intervalHours <= 0) return true;
-
-    const lastRun = task.updatedAt ? new Date(task.updatedAt + 'Z').getTime() : 0;
-    const now = Date.now();
-    const elapsedHours = (now - lastRun) / (1000 * 60 * 60);
-    return elapsedHours >= intervalHours;
-  }
-
   /** Find which crawler handles this domain. */
   function findCrawlerForDomain(hostname: string): SiteCrawler | undefined {
     return crawlers.find((c) => hostname.endsWith(c.domain));
-  }
-
-  /** Find due tasks that belong to a given crawler (by site id). */
-  function findDueTasks(tasks: Task[], crawlerName: string): Task[] {
-    return tasks.filter((t) => t.site === crawlerName && isDue(t));
   }
 
   // ---------------------------------------------------------------------------
@@ -64,7 +43,7 @@ const GM_PENDING_TASK_KEY = 'pendingCrawlTaskId';
       letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 8px;
       display: flex; justify-content: space-between; align-items: center;
     `;
-    header.textContent = `${dueTasks.length} crawl${dueTasks.length === 1 ? '' : 's'} due`;
+    header.textContent = `${dueTasks.length} crawl${dueTasks.length === 1 ? '' : 's'} available`;
 
     const closeBtn = document.createElement('span');
     closeBtn.textContent = '✕';
@@ -85,31 +64,38 @@ const GM_PENDING_TASK_KEY = 'pendingCrawlTaskId';
       label.style.cssText =
         'overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px;';
 
-      const btn = document.createElement('button');
-      btn.textContent = 'Run';
-      btn.style.cssText = `
+      const runBtn = document.createElement('button');
+      runBtn.textContent = 'Run';
+      runBtn.style.cssText = `
         background: #6366f1; color: white; border: none; border-radius: 6px;
-        padding: 4px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+        padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer;
         flex-shrink: 0;
       `;
-      btn.onmouseenter = () => (btn.style.background = '#4f46e5');
-      btn.onmouseleave = () => (btn.style.background = '#6366f1');
-      btn.onclick = () => startCrawl(task, crawler, panel);
+      runBtn.onmouseenter = () => (runBtn.style.background = '#4f46e5');
+      runBtn.onmouseleave = () => (runBtn.style.background = '#6366f1');
+      runBtn.onclick = () => startCrawl(task, crawler, panel);
 
       row.appendChild(label);
-      row.appendChild(btn);
+      row.appendChild(runBtn);
       panel.appendChild(row);
     }
 
     return panel;
   }
 
-  function showStatus(panel: HTMLElement, message: string, color = '#94a3b8') {
+  /** Replace panel contents with a progress bar container for the crawl. */
+  function showProgressUI(panel: HTMLElement, taskName: string): HTMLElement {
     panel.innerHTML = '';
-    const status = document.createElement('div');
-    status.style.cssText = `font-size: 12px; color: ${color}; padding: 4px 0;`;
-    status.textContent = message;
-    panel.appendChild(status);
+
+    const header = document.createElement('div');
+    header.style.cssText =
+      'font-weight: 600; font-size: 12px; color: #e2e8f0; margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+    header.textContent = taskName;
+    panel.appendChild(header);
+
+    const progressContainer = document.createElement('div');
+    panel.appendChild(progressContainer);
+    return progressContainer;
   }
 
   // ---------------------------------------------------------------------------
@@ -117,14 +103,18 @@ const GM_PENDING_TASK_KEY = 'pendingCrawlTaskId';
   // ---------------------------------------------------------------------------
 
   async function startCrawl(task: Task, crawler: SiteCrawler, panel: HTMLElement) {
+    if (crawlInProgress) return;
+    crawlInProgress = true;
+
     const currentUrl = window.location.href;
 
     if (crawler.match(currentUrl)) {
-      // We're already on the right page — run immediately
       await executeCrawl(task, crawler, panel);
     } else if (task.targetUrl) {
-      // Need to navigate — persist intent and go
-      showStatus(panel, 'Navigating to target page...');
+      const container = showProgressUI(panel, task.name);
+      const progress = new CrawlProgress(task.id);
+      progress.attachUI(container);
+      progress.info('Navigating to target page...');
       GM_setValue(GM_PENDING_TASK_KEY, task.id);
       window.location.href = task.targetUrl;
     }
@@ -134,19 +124,35 @@ const GM_PENDING_TASK_KEY = 'pendingCrawlTaskId';
     const config = parseConfig(task);
     const progress = new CrawlProgress(task.id);
 
-    showStatus(panel, 'Running crawl...', '#a5b4fc');
+    const container = showProgressUI(panel, task.name);
+    progress.attachUI(container);
+    progress.info('Starting crawl...');
 
     try {
       await updateTaskStatus(task.id, 'running');
       await crawler.run(task, config, progress);
-      const nextStatus = config.runMode === 'once' ? 'completed' : 'pending';
+
+      const allFailed = progress.errorCount > 0 && progress.savedCount === 0;
+      const nextStatus = allFailed ? 'failed' : config.runMode === 'once' ? 'completed' : 'pending';
       await updateTaskStatus(task.id, nextStatus).catch(() => {});
-      showStatus(panel, 'Crawl complete!', '#4ade80');
+
+      if (allFailed) {
+        progress.showResult(`Failed — ${progress.errorCount} errors, nothing saved`, '#f87171');
+      } else if (progress.errorCount > 0) {
+        progress.showResult(
+          `Done with ${progress.errorCount} error${progress.errorCount === 1 ? '' : 's'} — ${progress.savedCount} saved`,
+          '#fbbf24',
+        );
+      } else {
+        progress.showResult(`Crawl complete — ${progress.savedCount} saved`, '#4ade80');
+      }
     } catch (err) {
       console.error('[Crawler] Crawl failed:', err);
       progress.error(`Crawl failed: ${err}`);
-      await updateTaskStatus(task.id, 'pending').catch(() => {});
-      showStatus(panel, `Crawl failed: ${err}`, '#f87171');
+      await updateTaskStatus(task.id, 'failed').catch(() => {});
+      progress.showResult(`Crawl failed: ${err}`, '#f87171');
+    } finally {
+      crawlInProgress = false;
     }
   }
 
@@ -155,18 +161,38 @@ const GM_PENDING_TASK_KEY = 'pendingCrawlTaskId';
   // ---------------------------------------------------------------------------
 
   async function init() {
+    // Prevent duplicate panels (SPA navigation can re-trigger init)
+    if (document.getElementById('tm-crawler-panel')) return;
+
     const hostname = window.location.hostname;
+    console.log('[Crawler] Checking domain:', hostname);
     const crawler = findCrawlerForDomain(hostname);
-    if (!crawler) return; // Not on a supported domain
+    if (!crawler) {
+      console.log('[Crawler] No crawler registered for this domain');
+      return;
+    }
+    console.log('[Crawler] Matched crawler:', crawler.name);
 
     try {
-      const tasks = await fetchPendingTasks();
+      const tasks = await fetchActionableTasks();
+      console.log('[Crawler] Actionable tasks:', tasks.length);
+
+      const matchingTasks = tasks.filter((t) => t.site === crawler.name);
+
+      // Reset any stale "running" tasks back to pending (interrupted by refresh/nav)
+      for (const task of matchingTasks) {
+        if (task.status === 'running') {
+          console.log('[Crawler] Resetting interrupted task:', task.id);
+          await updateTaskStatus(task.id, 'pending').catch(() => {});
+          task.status = 'pending';
+        }
+      }
 
       // Check if we arrived here from a "Run" click (navigation with stored intent)
       const pendingTaskId = GM_getValue(GM_PENDING_TASK_KEY, null);
       if (pendingTaskId) {
         GM_setValue(GM_PENDING_TASK_KEY, null);
-        const task = tasks.find((t) => t.id === pendingTaskId);
+        const task = matchingTasks.find((t) => t.id === pendingTaskId);
         if (task && crawler.match(window.location.href)) {
           console.log('[Crawler] Resuming stored crawl for task:', task.id);
           const panel = createPanel([], crawler);
@@ -176,10 +202,10 @@ const GM_PENDING_TASK_KEY = 'pendingCrawlTaskId';
         }
       }
 
-      // Normal flow: show panel with due tasks
-      const dueTasks = findDueTasks(tasks, crawler.name);
-      if (dueTasks.length > 0) {
-        document.body.appendChild(createPanel(dueTasks, crawler));
+      // Show panel for all matching tasks
+      console.log('[Crawler] Tasks for', crawler.name + ':', matchingTasks.length);
+      if (matchingTasks.length > 0) {
+        document.body.appendChild(createPanel(matchingTasks, crawler));
       }
     } catch (e) {
       console.error('[Crawler] Error checking tasks:', e);

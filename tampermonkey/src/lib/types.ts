@@ -7,6 +7,7 @@ export interface Task {
   config: string | null;
   createdAt: string;
   updatedAt: string;
+  itemCount?: number;
 }
 
 export interface TaskConfig {
