@@ -20,14 +20,31 @@ make dev
 
 Then install the Tampermonkey script from `http://localhost:4242/tampermonkey.user.js` and create a task from the dashboard at `http://localhost:4242`.
 
+### Dev loop
+
+After changing tampermonkey code, rebuild and restart:
+
+```bash
+make build-tampermonkey && make dev
+```
+
+Tampermonkey will auto-update the script from the server on next page load.
+
 ## Source layout
 
 ```
 tampermonkey-crawler/
+  data/                      All persistent state (gitignored)
+    crawler.db               SQLite database
+    linkedin/                Media files organized by site/user/date
+    carmax/
   server/                    Fastify API + SQLite storage
     src/
-      index.ts               API routes and server setup
+      index.ts               Server setup and static file serving
+      app.ts                 API routes
       db.ts                  SQLite schema
+      media-store.ts         Filesystem media storage with structured paths
+      ffmpeg.ts              DASH video download and remuxing
       crawler-definitions.ts Dashboard field definitions per crawler
     public/
       index.html             Dashboard UI
@@ -73,7 +90,7 @@ Create a `.env` file in the project root:
 
 ```
 PORT=4242
-# DB_PATH=/data/crawler.db
+# DATA_DIR=./data   # default: ./data (stores crawler.db + media files)
 ```
 
 ## Documentation
