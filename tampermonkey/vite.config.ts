@@ -8,10 +8,10 @@ export default defineConfig({
       userscript: {
         name: 'Pluggable Crawler',
         namespace: 'npm/tampermonkey-crawler',
-        match: ['*://*.linkedin.com/*', '*://*.carmax.com/*', '*://*.carvana.com/*'],
+        match: ['*://*.linkedin.com/*', '*://*.carmax.com/*', '*://*.carvana.com/*', '*://*.autotrader.com/*'],
         noframes: true,
         grant: ['GM_xmlhttpRequest', 'GM_setValue', 'GM_getValue'],
-        connect: ['localhost', '127.0.0.1', 'licdn.com', 'carmax.com', 'carvana.com', 'carvana.io'],
+        connect: ['localhost', '127.0.0.1', 'licdn.com', 'carmax.com', 'carvana.com', 'carvana.io', 'autotrader.com'],
       },
       build: {
         fileName: 'tampermonkey.user.js',
