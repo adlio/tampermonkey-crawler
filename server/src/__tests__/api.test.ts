@@ -1,20 +1,30 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import type { FastifyInstance } from 'fastify';
 import { createDatabase } from '../db.js';
 import { buildApp } from '../app.js';
+import { MediaStore } from '../media-store.js';
 import type Database from 'better-sqlite3';
 
 let app: FastifyInstance;
 let db: Database.Database;
+let mediaStore: MediaStore;
+let tmpDir: string;
 
 beforeEach(async () => {
   db = createDatabase(); // in-memory
-  app = await buildApp(db);
+  tmpDir = mkdtempSync(join(tmpdir(), 'media-test-'));
+  mediaStore = new MediaStore(tmpDir);
+  mediaStore.ensureDir();
+  app = await buildApp(db, mediaStore);
 });
 
 afterEach(async () => {
   await app.close();
   db.close();
+  rmSync(tmpDir, { recursive: true, force: true });
 });
 
 // Helper to create a task and return its id
@@ -23,9 +33,9 @@ async function createTask(overrides: Record<string, unknown> = {}): Promise<stri
     method: 'POST',
     url: '/api/tasks',
     payload: {
-      siteId: 'carmax',
+      siteId: 'linkedin',
       config: {
-        targetUrl: 'https://www.carmax.com/cars/toyota',
+        profileId: 'simonwardley',
         taskName: 'Test Task',
         ...overrides,
       },
@@ -33,6 +43,9 @@ async function createTask(overrides: Record<string, unknown> = {}): Promise<stri
   });
   return resp.json().id;
 }
+
+const pngBase64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
 
 // ---------------------------------------------------------------------------
 // GET /api/definitions
@@ -58,8 +71,8 @@ describe('task CRUD', () => {
       method: 'POST',
       url: '/api/tasks',
       payload: {
-        siteId: 'carmax',
-        config: { targetUrl: 'https://www.carmax.com/cars/toyota', taskName: 'Sienna Hunt' },
+        siteId: 'linkedin',
+        config: { profileId: 'simonwardley', taskName: 'Wardley Posts' },
       },
     });
     expect(createResp.statusCode).toBe(200);
@@ -71,9 +84,9 @@ describe('task CRUD', () => {
     const tasks = listResp.json();
     expect(tasks).toHaveLength(1);
     expect(tasks[0].id).toBe(id);
-    expect(tasks[0].name).toBe('Sienna Hunt');
-    expect(tasks[0].site).toBe('carmax');
-    expect(tasks[0].targetUrl).toBe('https://www.carmax.com/cars/toyota');
+    expect(tasks[0].name).toBe('Wardley Posts');
+    expect(tasks[0].site).toBe('linkedin');
+    expect(tasks[0].targetUrl).toContain('simonwardley');
     expect(tasks[0].status).toBe('pending');
   });
 
@@ -102,7 +115,7 @@ describe('task CRUD', () => {
     const { id } = resp.json();
 
     const tasks = (await app.inject({ method: 'GET', url: '/api/tasks' })).json();
-    expect(tasks.find((t: any) => t.id === id).name).toBe('CarMax Search Results');
+    expect(tasks.find((t: any) => t.id === id).name).toBe('CarMax Vehicle Search');
   });
 
   it('rejects invalid siteId', async () => {
@@ -180,12 +193,12 @@ describe('POST /api/tasks/:id/config', () => {
     const config = JSON.parse(tasks[0].config);
     expect(config.lastSavedItemKey).toBe('post-123');
     // Original fields preserved
-    expect(config.targetUrl).toBe('https://www.carmax.com/cars/toyota');
+    expect(config.profileId).toBe('simonwardley');
   });
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/collect + GET /api/tasks/:id/items
+// POST /api/collect + media storage
 // ---------------------------------------------------------------------------
 describe('POST /api/collect', () => {
   it('stores a raw crawl item and retrieves it', async () => {
@@ -195,10 +208,10 @@ describe('POST /api/collect', () => {
       method: 'POST',
       url: '/api/collect',
       payload: {
-        site: 'carmax',
+        site: 'linkedin',
         taskId,
-        itemKey: 'vin-123',
-        payload: { title: 'Toyota Sienna', price: '$30,000' },
+        itemKey: 'post-123',
+        payload: { text: 'Hello world', postDate: '2024-06-15T12:00:00.000Z' },
       },
     });
     expect(collectResp.statusCode).toBe(200);
@@ -210,9 +223,9 @@ describe('POST /api/collect', () => {
     });
     const items = itemsResp.json();
     expect(items).toHaveLength(1);
-    expect(items[0].itemKey).toBe('vin-123');
+    expect(items[0].itemKey).toBe('post-123');
     const payload = JSON.parse(items[0].payload);
-    expect(payload.title).toBe('Toyota Sienna');
+    expect(payload.text).toBe('Hello world');
   });
 
   it('upserts on duplicate (taskId, itemKey)', async () => {
@@ -221,24 +234,24 @@ describe('POST /api/collect', () => {
     await app.inject({
       method: 'POST',
       url: '/api/collect',
-      payload: { site: 'carmax', taskId, itemKey: 'vin-123', payload: { price: '$30,000' } },
+      payload: { site: 'linkedin', taskId, itemKey: 'post-1', payload: { text: 'v1' } },
     });
     await app.inject({
       method: 'POST',
       url: '/api/collect',
-      payload: { site: 'carmax', taskId, itemKey: 'vin-123', payload: { price: '$28,000' } },
+      payload: { site: 'linkedin', taskId, itemKey: 'post-1', payload: { text: 'v2' } },
     });
 
     const items = (await app.inject({ method: 'GET', url: `/api/tasks/${taskId}/items` })).json();
     expect(items).toHaveLength(1);
-    expect(JSON.parse(items[0].payload).price).toBe('$28,000');
+    expect(JSON.parse(items[0].payload).text).toBe('v2');
   });
 
   it('rejects missing taskId', async () => {
     const resp = await app.inject({
       method: 'POST',
       url: '/api/collect',
-      payload: { site: 'carmax', payload: { title: 'test' } },
+      payload: { site: 'linkedin', payload: { text: 'test' } },
     });
     expect(resp.statusCode).toBe(400);
   });
@@ -247,145 +260,340 @@ describe('POST /api/collect', () => {
     const resp = await app.inject({
       method: 'POST',
       url: '/api/collect',
-      payload: { site: 'carmax', taskId: 'nonexistent', itemKey: 'x', payload: {} },
+      payload: { site: 'linkedin', taskId: 'nonexistent', itemKey: 'x', payload: {} },
     });
     expect(resp.statusCode).toBe(404);
   });
 
-  it('stores images as content-addressed blobs', async () => {
+  it('saves images to structured paths on disk', async () => {
     const taskId = await createTask();
-
-    // A tiny 1x1 red PNG as base64
-    const pngBase64 =
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
 
     await app.inject({
       method: 'POST',
       url: '/api/collect',
       payload: {
-        site: 'carmax',
+        site: 'linkedin',
         taskId,
-        itemKey: 'vin-456',
+        itemKey: 'post-img',
         payload: {
-          title: 'With Image',
+          text: 'A post with images',
+          postDate: '2024-03-15T10:00:00.000Z',
+          images: [
+            { name: 'photo.png', data: pngBase64 },
+            { name: 'photo2.png', data: pngBase64 },
+          ],
+        },
+      },
+    });
+
+    // Verify media_files rows
+    const files = db.prepare('SELECT * FROM media_files').all() as any[];
+    expect(files).toHaveLength(2);
+    expect(files[0].role).toBe('image');
+    expect(files[0].mimeType).toBe('image/png');
+    expect(files[0].size).toBeGreaterThan(0);
+
+    // Verify path structure: linkedin/simonwardley/2024/2024-03/2024-03-15-a-post-with-images-image1.png
+    expect(files[0].filePath).toMatch(/linkedin\/simonwardley\/2024\/2024-03\/.*-image1\.png$/);
+    expect(files[1].filePath).toMatch(/linkedin\/simonwardley\/2024\/2024-03\/.*-image2\.png$/);
+
+    // Verify files exist on disk
+    expect(existsSync(join(tmpDir, files[0].filePath))).toBe(true);
+    expect(existsSync(join(tmpDir, files[1].filePath))).toBe(true);
+  });
+
+  it('saves a single image without numeric suffix', async () => {
+    const taskId = await createTask();
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/collect',
+      payload: {
+        site: 'linkedin',
+        taskId,
+        itemKey: 'post-single',
+        payload: {
+          text: 'One image post',
+          postDate: '2024-06-01T00:00:00.000Z',
+          images: [{ name: 'photo.jpg', data: pngBase64 }],
+        },
+      },
+    });
+
+    const files = db.prepare('SELECT filePath FROM media_files').all() as any[];
+    expect(files).toHaveLength(1);
+    expect(files[0].filePath).toMatch(/-image\.jpg$/);
+  });
+
+  it('saves video poster to structured path', async () => {
+    const taskId = await createTask();
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/collect',
+      payload: {
+        site: 'linkedin',
+        taskId,
+        itemKey: 'post-vid',
+        payload: {
+          text: 'Video post about mapping',
+          postDate: '2024-09-20T14:00:00.000Z',
+          hasVideo: true,
+          videoPoster: { name: 'poster.jpg', data: pngBase64 },
+          videoCdnUrls: [],
+        },
+      },
+    });
+
+    const files = db.prepare('SELECT * FROM media_files').all() as any[];
+    expect(files).toHaveLength(1);
+    expect(files[0].role).toBe('video-poster');
+    expect(files[0].filePath).toMatch(/linkedin\/simonwardley\/2024\/2024-09\/.*-poster\.jpg$/);
+    expect(existsSync(join(tmpDir, files[0].filePath))).toBe(true);
+  });
+
+  it('calls ffmpeg for DASH manifest URLs', async () => {
+    const taskId = await createTask();
+
+    // Mock the ffmpeg module — use a deferred promise so we can wait for the fire-and-forget
+    let resolveDownload: () => void;
+    const downloadDone = new Promise<void>((r) => {
+      resolveDownload = r;
+    });
+    const ffmpeg = await import('../ffmpeg.js');
+    const spy = vi.spyOn(ffmpeg, 'downloadVideoWithFfmpeg').mockImplementation(async () => {
+      resolveDownload();
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/collect',
+      payload: {
+        site: 'linkedin',
+        taskId,
+        itemKey: 'post-vid-ffmpeg',
+        payload: {
+          text: 'Map camp announcement',
+          postDate: '2024-11-10T08:00:00.000Z',
+          hasVideo: true,
+          videoCdnUrls: [
+            'https://dms.licdn.com/playlist/vid/v2/ABCDEF/video-auto-caption-webvtt/0/file.vtt',
+            'https://dms.licdn.com/playlist/vid/dash/ABCDEF/BAgmjMTYOhUyNg?e=123&t=xyz',
+            'https://dms.licdn.com/playlist/vid/v2/ABCDEF/hls-720p/1/segment.ts?e=123',
+          ],
+        },
+      },
+    });
+
+    // Wait for the fire-and-forget ffmpeg call to complete
+    await downloadDone;
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const [manifestUrl, outputPath] = spy.mock.calls[0];
+    expect(manifestUrl).toContain('/dash/');
+    expect(outputPath).toMatch(/\.mp4$/);
+    expect(outputPath).toMatch(/linkedin\/simonwardley\/2024\/2024-11\/.*-video\.mp4$/);
+
+    spy.mockRestore();
+  });
+
+  it('skips caption/webvtt URLs when finding manifest', async () => {
+    const taskId = await createTask();
+
+    const ffmpeg = await import('../ffmpeg.js');
+    const spy = vi.spyOn(ffmpeg, 'downloadVideoWithFfmpeg').mockResolvedValue(undefined);
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/collect',
+      payload: {
+        site: 'linkedin',
+        taskId,
+        itemKey: 'post-captions-only',
+        payload: {
+          text: 'Post with only captions',
+          postDate: '2024-05-01T00:00:00.000Z',
+          hasVideo: true,
+          videoCdnUrls: [
+            'https://dms.licdn.com/playlist/vid/v2/ABC/video-auto-caption-webvtt/0/captions.vtt',
+          ],
+        },
+      },
+    });
+
+    // No manifest found, ffmpeg should not be called
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('continues when ffmpeg fails', async () => {
+    const taskId = await createTask();
+
+    let resolveDownload: () => void;
+    const downloadDone = new Promise<void>((r) => {
+      resolveDownload = r;
+    });
+    const ffmpeg = await import('../ffmpeg.js');
+    const spy = vi.spyOn(ffmpeg, 'downloadVideoWithFfmpeg').mockImplementation(async () => {
+      resolveDownload();
+      throw new Error('ffmpeg not found');
+    });
+
+    const resp = await app.inject({
+      method: 'POST',
+      url: '/api/collect',
+      payload: {
+        site: 'linkedin',
+        taskId,
+        itemKey: 'post-ffmpeg-fail',
+        payload: {
+          text: 'Video that fails',
+          postDate: '2024-07-01T00:00:00.000Z',
+          hasVideo: true,
+          videoCdnUrls: ['https://dms.licdn.com/playlist/vid/dash/XYZ/manifest?e=123'],
+        },
+      },
+    });
+
+    // Collect returns immediately (fire-and-forget)
+    expect(resp.statusCode).toBe(200);
+    expect(resp.json().success).toBe(true);
+
+    // Wait for background ffmpeg to complete (and fail)
+    await downloadDone;
+    // Give the .catch handler a tick to run
+    await new Promise((r) => setTimeout(r, 10));
+
+    // No media file for the video since ffmpeg failed
+    const files = db.prepare("SELECT * FROM media_files WHERE role = 'video'").all();
+    expect(files).toHaveLength(0);
+
+    spy.mockRestore();
+  });
+
+  it('deduplicates media_files on re-collect', async () => {
+    const taskId = await createTask();
+    const collectPayload = {
+      site: 'linkedin',
+      taskId,
+      itemKey: 'post-dedup',
+      payload: {
+        text: 'Post collected twice',
+        postDate: '2024-04-01T00:00:00.000Z',
+        images: [{ name: 'photo.png', data: pngBase64 }],
+      },
+    };
+
+    // Collect the same item twice
+    await app.inject({ method: 'POST', url: '/api/collect', payload: collectPayload });
+    await app.inject({ method: 'POST', url: '/api/collect', payload: collectPayload });
+
+    // Should only have 1 media row, not 2
+    const files = db.prepare('SELECT * FROM media_files').all();
+    expect(files).toHaveLength(1);
+  });
+
+  it('handles relative dates in path generation', async () => {
+    const taskId = await createTask();
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/collect',
+      payload: {
+        site: 'linkedin',
+        taskId,
+        itemKey: 'post-relative',
+        payload: {
+          text: 'Recent post with relative date',
+          postDate: '5d',
+          images: [{ name: 'photo.jpg', data: pngBase64 }],
+        },
+      },
+    });
+
+    const files = db.prepare('SELECT filePath FROM media_files').all() as any[];
+    expect(files).toHaveLength(1);
+    // Should have a valid date-based path (not 'NaN' or 'undefined')
+    expect(files[0].filePath).toMatch(
+      /linkedin\/simonwardley\/\d{4}\/\d{4}-\d{2}\/\d{4}-\d{2}-\d{2}-recent-post-with-relative-date-image\.jpg$/,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/media/:id
+// ---------------------------------------------------------------------------
+describe('GET /api/media/:id', () => {
+  it('serves a stored media file', async () => {
+    const taskId = await createTask();
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/collect',
+      payload: {
+        site: 'linkedin',
+        taskId,
+        itemKey: 'post-serve',
+        payload: {
+          text: 'Serve this image',
+          postDate: '2024-01-01T00:00:00.000Z',
           images: [{ name: 'photo.png', data: pngBase64 }],
         },
       },
     });
 
-    // Verify blob was stored
-    const blobs = db.prepare('SELECT hash, mimeType, size FROM blobs').all() as any[];
-    expect(blobs).toHaveLength(1);
-    expect(blobs[0].mimeType).toBe('image/png');
-    expect(blobs[0].size).toBeGreaterThan(0);
-
-    // Verify blob is retrievable via API
-    const blobResp = await app.inject({
-      method: 'GET',
-      url: `/api/blobs/${blobs[0].hash}`,
-    });
-    expect(blobResp.statusCode).toBe(200);
-    expect(blobResp.headers['content-type']).toBe('image/png');
-
-    // Verify link table
-    const links = db.prepare('SELECT * FROM raw_crawl_blobs').all() as any[];
-    expect(links).toHaveLength(1);
-    expect(links[0].name).toBe('photo.png');
-    expect(links[0].role).toBe('content-image');
-  });
-
-  it('accepts multipart/form-data with file uploads', async () => {
-    const taskId = await createTask();
-
-    // 1x1 red PNG
-    const pngBuf = Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
-      'base64',
-    );
-
-    const boundary = '----TestBoundary123';
-    const parts = [
-      `--${boundary}\r\nContent-Disposition: form-data; name="site"\r\n\r\ncarmax`,
-      `--${boundary}\r\nContent-Disposition: form-data; name="taskId"\r\n\r\n${taskId}`,
-      `--${boundary}\r\nContent-Disposition: form-data; name="itemKey"\r\n\r\nvin-multi`,
-      `--${boundary}\r\nContent-Disposition: form-data; name="payload"\r\n\r\n${JSON.stringify({ title: 'Multipart Car' })}`,
-      `--${boundary}\r\nContent-Disposition: form-data; name="image"; filename="car.png"\r\nContent-Type: image/png\r\n\r\n`,
-    ];
-
-    const body = Buffer.concat([
-      Buffer.from(parts.join('\r\n') + '\r\n'),
-      pngBuf,
-      Buffer.from(`\r\n--${boundary}--\r\n`),
-    ]);
+    const files = db.prepare('SELECT id, mimeType FROM media_files').all() as any[];
+    expect(files).toHaveLength(1);
 
     const resp = await app.inject({
-      method: 'POST',
-      url: '/api/collect',
-      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
-      payload: body,
+      method: 'GET',
+      url: `/api/media/${files[0].id}`,
     });
     expect(resp.statusCode).toBe(200);
-    expect(resp.json().success).toBe(true);
-
-    // Verify the item was stored with images attached by the multipart handler
-    const items = (await app.inject({ method: 'GET', url: `/api/tasks/${taskId}/items` })).json();
-    expect(items).toHaveLength(1);
-    const payload = JSON.parse(items[0].payload);
-    expect(payload.title).toBe('Multipart Car');
-    expect(payload.images).toHaveLength(1);
-    expect(payload.images[0].name).toBe('car.png');
-
-    // Verify blob was stored
-    const blobs = db.prepare('SELECT hash, mimeType FROM blobs').all() as any[];
-    expect(blobs).toHaveLength(1);
-    expect(blobs[0].mimeType).toBe('image/png');
+    expect(resp.headers['content-type']).toBe('image/png');
   });
 
-  it('deduplicates identical blobs', async () => {
-    const taskId = await createTask();
-    const pngBase64 =
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
-
-    // Send same image on two different items
-    await app.inject({
-      method: 'POST',
-      url: '/api/collect',
-      payload: {
-        site: 'carmax',
-        taskId,
-        itemKey: 'vin-1',
-        payload: { images: [{ name: 'a.png', data: pngBase64 }] },
-      },
+  it('returns 404 for unknown id', async () => {
+    const resp = await app.inject({
+      method: 'GET',
+      url: '/api/media/99999',
     });
-    await app.inject({
-      method: 'POST',
-      url: '/api/collect',
-      payload: {
-        site: 'carmax',
-        taskId,
-        itemKey: 'vin-2',
-        payload: { images: [{ name: 'b.png', data: pngBase64 }] },
-      },
-    });
-
-    // Only one blob row, but two link rows
-    const blobs = db.prepare('SELECT * FROM blobs').all();
-    expect(blobs).toHaveLength(1);
-    const links = db.prepare('SELECT * FROM raw_crawl_blobs').all();
-    expect(links).toHaveLength(2);
+    expect(resp.statusCode).toBe(404);
   });
 });
 
 // ---------------------------------------------------------------------------
-// GET /api/blobs/:hash
+// GET /api/tasks/:id/media
 // ---------------------------------------------------------------------------
-describe('GET /api/blobs/:hash', () => {
-  it('returns 404 for unknown hash', async () => {
+describe('GET /api/tasks/:id/media', () => {
+  it('lists media files for a task', async () => {
+    const taskId = await createTask();
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/collect',
+      payload: {
+        site: 'linkedin',
+        taskId,
+        itemKey: 'post-media-list',
+        payload: {
+          text: 'Post with mixed media',
+          postDate: '2024-08-01T00:00:00.000Z',
+          images: [{ name: 'img.png', data: pngBase64 }],
+          videoPoster: { name: 'poster.jpg', data: pngBase64 },
+          videoCdnUrls: [],
+        },
+      },
+    });
+
     const resp = await app.inject({
       method: 'GET',
-      url: '/api/blobs/deadbeef',
+      url: `/api/tasks/${taskId}/media`,
     });
-    expect(resp.statusCode).toBe(404);
+    const files = resp.json();
+    expect(files).toHaveLength(2);
+    const roles = files.map((f: any) => f.role).sort();
+    expect(roles).toEqual(['image', 'video-poster']);
   });
 });
 
@@ -418,24 +626,5 @@ describe('crawl logs', () => {
     const errorLog = logs.find((l: any) => l.level === 'error');
     expect(errorLog.message).toBe('Something broke');
     expect(JSON.parse(errorLog.data)).toEqual({ found: 5 });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// DELETE /api/tasks
-// ---------------------------------------------------------------------------
-describe('DELETE /api/tasks', () => {
-  it('deletes all tasks', async () => {
-    await createTask();
-    await createTask();
-
-    const before = (await app.inject({ method: 'GET', url: '/api/tasks' })).json();
-    expect(before).toHaveLength(2);
-
-    const delResp = await app.inject({ method: 'DELETE', url: '/api/tasks' });
-    expect(delResp.statusCode).toBe(200);
-
-    const after = (await app.inject({ method: 'GET', url: '/api/tasks' })).json();
-    expect(after).toHaveLength(0);
   });
 });

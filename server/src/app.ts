@@ -1,12 +1,16 @@
-import { createHash, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
+import { statSync } from 'node:fs';
 import type Database from 'better-sqlite3';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import { crawlerDefinitions } from './crawler-definitions.js';
+import type { MediaStore, MediaPathInfo } from './media-store.js';
+import { mimeFromName, extFromMime } from './media-store.js';
+import { downloadVideoWithFfmpeg } from './ffmpeg.js';
 
-export async function buildApp(db: Database.Database) {
-  const fastify = Fastify({ logger: false });
+export async function buildApp(db: Database.Database, mediaStore: MediaStore) {
+  const fastify = Fastify({ logger: false, bodyLimit: 50 * 1024 * 1024 });
 
   await fastify.register(cors);
   await fastify.register(multipart);
@@ -24,14 +28,13 @@ export async function buildApp(db: Database.Database) {
     VALUES (?, ?, ?, ?)
   `);
 
-  const insertBlob = db.prepare(`
-    INSERT OR IGNORE INTO blobs (hash, data, mimeType, size)
-    VALUES (?, ?, ?, ?)
+  const insertMediaFile = db.prepare(`
+    INSERT INTO media_files (rawCrawlId, role, filePath, mimeType, size)
+    VALUES (?, ?, ?, ?, ?)
   `);
 
-  const linkBlob = db.prepare(`
-    INSERT OR IGNORE INTO raw_crawl_blobs (rawCrawlId, blobHash, name, role)
-    VALUES (?, ?, ?, ?)
+  const deleteMediaForCrawl = db.prepare(`
+    DELETE FROM media_files WHERE rawCrawlId = ?
   `);
 
   // API Routes
@@ -45,9 +48,23 @@ export async function buildApp(db: Database.Database) {
         return db.prepare('SELECT * FROM tasks ORDER BY updatedAt DESC').all();
       });
 
-      // GET /api/tasks/pending — only pending tasks (for the userscript)
+      // GET /api/tasks/pending — pending tasks (for the userscript)
       api.get('/tasks/pending', async () => {
         return db.prepare("SELECT * FROM tasks WHERE status = 'pending'").all();
+      });
+
+      // GET /api/tasks/actionable — pending + running tasks (handles interrupted crawls)
+      // Includes itemCount so the crawler can detect stale bookmarks after data wipes
+      api.get('/tasks/actionable', async () => {
+        return db
+          .prepare(
+            `SELECT t.*, COALESCE(c.cnt, 0) AS itemCount
+             FROM tasks t
+             LEFT JOIN (SELECT taskId, COUNT(*) AS cnt FROM raw_crawls GROUP BY taskId) c
+               ON c.taskId = t.id
+             WHERE t.status IN ('pending', 'running')`,
+          )
+          .all();
       });
 
       // POST /api/tasks
@@ -69,7 +86,7 @@ export async function buildApp(db: Database.Database) {
         return { success: true, id };
       });
 
-      // POST /api/collect — store raw crawl data and blobs
+      // POST /api/collect — store raw crawl data and media files
       api.post('/collect', async (request, reply) => {
         try {
           let payload: any = null;
@@ -117,23 +134,112 @@ export async function buildApp(db: Database.Database) {
             return reply.status(404).send({ error: 'Task not found' });
           }
 
+          // Build path info from task config + payload metadata
+          const taskConfig = JSON.parse(task.config || '{}');
+
+          // Build identifier: for vehicles use make/model/year/vin hierarchy,
+          // for social posts use profileId
+          let identifier: string;
+          if (payload?.vin || payload?.stockNumber) {
+            const parts = [
+              payload.make?.toLowerCase(),
+              payload.model?.toLowerCase(),
+              payload.year?.toString(),
+              payload.vin || payload.stockNumber,
+            ].filter(Boolean);
+            identifier = parts.join('/');
+          } else {
+            identifier = taskConfig.profileId || taskConfig.identifier || itemKey || 'unknown';
+          }
+
+          const pathInfo: MediaPathInfo = {
+            site,
+            identifier,
+            postDate: payload?.postDate || '',
+            postText: payload?.text || payload?.title || '',
+            itemKey: itemKey || taskId,
+          };
+
           // Store raw crawl (upsert by taskId + itemKey)
           upsertRawCrawl.run(taskId, site, itemKey, JSON.stringify(payload));
 
-          // Process images into content-addressed blob storage
           const rawRow = db
             .prepare('SELECT id FROM raw_crawls WHERE taskId = ? AND itemKey = ?')
             .get(taskId, itemKey) as { id: number } | undefined;
           const rawCrawlId = rawRow?.id;
 
-          if (rawCrawlId && payload?.images) {
-            for (const img of payload.images) {
-              if (!img.data) continue;
-              const buffer = Buffer.from(img.data, 'base64');
-              const hash = createHash('sha256').update(buffer).digest('hex');
-              const mimeType = img.name?.endsWith('.png') ? 'image/png' : 'image/jpeg';
-              insertBlob.run(hash, buffer, mimeType, buffer.length);
-              linkBlob.run(rawCrawlId, hash, img.name || 'image.jpg', 'content-image');
+          if (rawCrawlId) {
+            // Clear old media files from disk and DB on re-collect
+            const oldFiles = db
+              .prepare('SELECT filePath FROM media_files WHERE rawCrawlId = ?')
+              .all(rawCrawlId) as { filePath: string }[];
+            for (const f of oldFiles) {
+              mediaStore.delete(f.filePath);
+            }
+            deleteMediaForCrawl.run(rawCrawlId);
+
+            // Compute post path once for all media in this post
+            const { dir, prefix } = mediaStore.postPath(pathInfo);
+
+            /** Save a base64-encoded media file and insert a DB row. */
+            function saveMedia(
+              data: string,
+              fileName: string,
+              mediaName: string,
+              role: string,
+            ): void {
+              const buffer = Buffer.from(data, 'base64');
+              const mimeType = mimeFromName(fileName);
+              const ext = extFromMime(mimeType);
+              const relativePath = `${dir}/${prefix}-${mediaName}.${ext}`;
+              mediaStore.write(relativePath, buffer);
+              insertMediaFile.run(rawCrawlId, role, relativePath, mimeType, buffer.length);
+            }
+
+            // Save images
+            if (payload?.images) {
+              for (let i = 0; i < payload.images.length; i++) {
+                const img = payload.images[i];
+                if (!img.data) continue;
+                const mediaName = payload.images.length === 1 ? 'image' : `image${i + 1}`;
+                saveMedia(img.data, img.name || 'image.jpg', mediaName, 'image');
+              }
+            }
+
+            // Save video poster
+            if (payload?.videoPoster?.data) {
+              saveMedia(
+                payload.videoPoster.data,
+                payload.videoPoster.name || 'poster.jpg',
+                'poster',
+                'video-poster',
+              );
+            }
+
+            // Download video via ffmpeg from DASH/HLS manifest (non-blocking)
+            if (payload?.videoCdnUrls && Array.isArray(payload.videoCdnUrls)) {
+              const urls = payload.videoCdnUrls as string[];
+              const dashUrl = urls.find(
+                (u) => /\.mpd/i.test(u) || (/\/dash\//i.test(u) && !/webvtt|caption/i.test(u)),
+              );
+              const hlsUrl = urls.find((u) => /\.m3u8/i.test(u));
+              const manifestUrl = dashUrl || hlsUrl;
+
+              if (manifestUrl) {
+                const relativePath = `${dir}/${prefix}-video.mp4`;
+                const outputPath = mediaStore.fullPath(relativePath);
+                mediaStore.ensureDirFor(relativePath);
+
+                // Fire-and-forget: don't block the HTTP response
+                downloadVideoWithFfmpeg(manifestUrl, outputPath)
+                  .then(() => {
+                    const size = statSync(outputPath).size;
+                    insertMediaFile.run(rawCrawlId, 'video', relativePath, 'video/mp4', size);
+                  })
+                  .catch((err: any) => {
+                    console.warn(`[Collect] ffmpeg video download failed: ${err.message}`);
+                  });
+              }
             }
           }
 
@@ -157,14 +263,31 @@ export async function buildApp(db: Database.Database) {
         return items;
       });
 
-      // GET /api/blobs/:hash -- serve a blob by content hash
-      api.get('/blobs/:hash', async (request, reply) => {
-        const { hash } = request.params as { hash: string };
-        const blob = db.prepare('SELECT data, mimeType FROM blobs WHERE hash = ?').get(hash) as
-          | { data: Buffer; mimeType: string }
-          | undefined;
-        if (!blob) return reply.status(404).send({ error: 'Blob not found' });
-        return reply.type(blob.mimeType).send(blob.data);
+      // GET /api/media/:id -- serve a media file by its DB id
+      api.get('/media/:id', async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const row = db
+          .prepare('SELECT filePath, mimeType FROM media_files WHERE id = ?')
+          .get(id) as { filePath: string; mimeType: string } | undefined;
+        if (!row) return reply.status(404).send({ error: 'Media not found' });
+        const data = mediaStore.read(row.filePath);
+        if (!data) return reply.status(404).send({ error: 'File not found on disk' });
+        return reply.type(row.mimeType).send(data);
+      });
+
+      // GET /api/tasks/:id/media -- list media files for a task's items
+      api.get('/tasks/:id/media', async (request) => {
+        const { id } = request.params as { id: string };
+        const files = db
+          .prepare(
+            `SELECT mf.id, mf.rawCrawlId, mf.role, mf.filePath, mf.mimeType, mf.size, mf.createdAt
+             FROM media_files mf
+             JOIN raw_crawls rc ON rc.id = mf.rawCrawlId
+             WHERE rc.taskId = ?
+             ORDER BY mf.createdAt DESC`,
+          )
+          .all(id);
+        return files;
       });
 
       // POST /api/tasks/:id/config — merge fields into task config
@@ -217,12 +340,6 @@ export async function buildApp(db: Database.Database) {
           .prepare('SELECT * FROM crawl_logs WHERE taskId = ? ORDER BY createdAt DESC LIMIT 200')
           .all(id);
         return logs;
-      });
-
-      // DELETE /api/tasks
-      api.delete('/tasks', async (_request, _reply) => {
-        db.prepare('DELETE FROM tasks').run();
-        return { success: true };
       });
     },
     { prefix: '/api' },

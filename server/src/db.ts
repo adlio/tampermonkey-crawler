@@ -1,6 +1,4 @@
 import Database from 'better-sqlite3';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS tasks (
@@ -37,23 +35,17 @@ const SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS idx_crawl_logs_task ON crawl_logs(taskId);
 
-  -- Content-addressed blob storage
-  CREATE TABLE IF NOT EXISTS blobs (
-    hash TEXT PRIMARY KEY,
-    data BLOB NOT NULL,
+  -- Media files stored on disk, paths recorded here
+  CREATE TABLE IF NOT EXISTS media_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rawCrawlId INTEGER NOT NULL,
+    role TEXT NOT NULL, -- 'image', 'video-poster', 'video'
+    filePath TEXT NOT NULL, -- relative path from data root
     mimeType TEXT NOT NULL DEFAULT 'application/octet-stream',
-    size INTEGER NOT NULL,
+    size INTEGER NOT NULL DEFAULT 0,
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
   );
-
-  CREATE TABLE IF NOT EXISTS raw_crawl_blobs (
-    rawCrawlId INTEGER NOT NULL,
-    blobHash TEXT NOT NULL,
-    name TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'content-image',
-    PRIMARY KEY (rawCrawlId, blobHash, name)
-  );
-  CREATE INDEX IF NOT EXISTS idx_raw_crawl_blobs_hash ON raw_crawl_blobs(blobHash);
+  CREATE INDEX IF NOT EXISTS idx_media_files_crawl ON media_files(rawCrawlId);
 `;
 
 export function initSchema(db: Database.Database): void {
@@ -65,9 +57,3 @@ export function createDatabase(path?: string): Database.Database {
   initSchema(db);
   return db;
 }
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const dbPath = process.env.DB_PATH || resolve(__dirname, '../../crawler.db');
-const db = createDatabase(dbPath);
-
-export default db;

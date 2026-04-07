@@ -19,9 +19,6 @@
                 <p class="text-slate-500 mt-1 font-medium">Manage your browser-based data extraction tasks.</p>
             </div>
             <div class="flex gap-3">
-                <button onclick="clearTasks()" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-slate-200 bg-white hover:bg-slate-100 h-10 px-4 py-2 text-slate-900 shadow-sm">
-                    Clear All
-                </button>
                 <button onclick="showTaskModal()" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-indigo-600 text-white hover:bg-indigo-700 h-10 px-4 py-2 shadow-sm">
                     New Task
                 </button>
@@ -256,13 +253,6 @@
 
             if (resp.ok) {
                 hideTaskModal();
-                fetchTasks();
-            }
-        }
-
-        async function clearTasks() {
-            if (confirm('Clear all tasks?')) {
-                await fetch('/api/tasks', { method: 'DELETE' });
                 fetchTasks();
             }
         }
