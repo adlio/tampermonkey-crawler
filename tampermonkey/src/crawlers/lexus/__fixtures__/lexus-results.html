@@ -1,0 +1,83 @@
+<!-- Lexus search inventory results fixture -->
+<!-- 3 real cards inside TileGrid + 1 card outside TileGrid (should be excluded) -->
+<div data-testid="VehicleGrid">
+  <div data-testid="TileGrid">
+
+    <!-- Card 1: RX 350 Gas AWD, standard listing -->
+    <div class="vehicle-card" data-vin="2T2BAMCA4TC137546">
+      <div data-testid="JellyCarouselBase">
+        <img src="https://media.rti.toyota.com/adobe/assets/urn:aaid:aem:rx350-nightfall/as/image.png?size=315,215" alt="2026 RX 350">
+      </div>
+      <div data-testid="VehicleTileNameBase">2026 RX 350</div>
+      <div data-testid="PriceBase">$53,759</div>
+      <div data-testid="DealerBase">Lexus of Portland (4 mi)</div>
+      <div data-testid="VehicleTagsBase">Gas AWD</div>
+      <div data-testid="StatusMatchBase"></div>
+      <div data-testid="BuildPhaseBase"></div>
+      <div data-testid="CTASBase">
+        <a href="#">VIEW DETAILS</a>
+        <a href="#">VIEW DEALER LISTING</a>
+      </div>
+      <div data-testid="CompareToggleBase">
+        <input type="checkbox" aria-label="2T2BAMCA4TC137546-compare-vehicle-toggle">
+      </div>
+      <div data-testid="DGSaveHeart" id="dg-inline-saves-inv-2T2BAMCA4TC137546-vehicle-tile"></div>
+    </div>
+
+    <!-- Card 2: RX 350 Luxury, Monogram dealer -->
+    <div class="vehicle-card" data-vin="2T2HBMCA0TC200001">
+      <div data-testid="JellyCarouselBase">
+        <img src="https://media.rti.toyota.com/adobe/assets/urn:aaid:aem:rx350-luxury/as/image.png?size=315,215" alt="2026 RX 350 Luxury">
+      </div>
+      <div data-testid="VehicleTileNameBase">2026 RX 350 Luxury</div>
+      <div data-testid="PriceBase">$58,250</div>
+      <div data-testid="DealerBase">Kuni Lexus of Portland (6 mi)</div>
+      <div data-testid="VehicleTagsBase">Gas AWD</div>
+      <div data-testid="StatusMatchBase">Lexus Monogram Dealer</div>
+      <div data-testid="BuildPhaseBase"></div>
+      <div data-testid="CTASBase">
+        <a href="#">VIEW DETAILS</a>
+      </div>
+      <div data-testid="CompareToggleBase">
+        <input type="checkbox" aria-label="2T2HBMCA0TC200001-compare-vehicle-toggle">
+      </div>
+      <div data-testid="DGSaveHeart" id="dg-inline-saves-inv-2T2HBMCA0TC200001-vehicle-tile"></div>
+    </div>
+
+    <!-- Card 3: NX 350h in transit -->
+    <div class="vehicle-card" data-vin="JTJDWRCA5TA050099">
+      <div data-testid="JellyCarouselBase">
+        <img src="https://media.rti.toyota.com/adobe/assets/urn:aaid:aem:nx350h/as/image.png?size=315,215" alt="2026 NX 350h">
+      </div>
+      <div data-testid="VehicleTileNameBase">2026 NX 350h</div>
+      <div data-testid="PriceBase">$45,490</div>
+      <div data-testid="DealerBase">Lexus of Beaverton (12 mi)</div>
+      <div data-testid="VehicleTagsBase">Hybrid AWD</div>
+      <div data-testid="StatusMatchBase"></div>
+      <div data-testid="BuildPhaseBase">In Transit</div>
+      <div data-testid="CTASBase">
+        <a href="#">VIEW DETAILS</a>
+      </div>
+      <div data-testid="CompareToggleBase">
+        <input type="checkbox" aria-label="JTJDWRCA5TA050099-compare-vehicle-toggle">
+      </div>
+      <div data-testid="DGSaveHeart" id="dg-inline-saves-inv-JTJDWRCA5TA050099-vehicle-tile"></div>
+    </div>
+
+    <!-- Card 4: missing DGSaveHeart — should produce an error -->
+    <div class="vehicle-card">
+      <div data-testid="VehicleTileNameBase">2026 RX 500h</div>
+      <div data-testid="PriceBase">$63,100</div>
+      <div data-testid="DealerBase">Lexus of Lake Oswego (8 mi)</div>
+      <div data-testid="VehicleTagsBase">Hybrid AWD</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Card outside TileGrid — should be excluded -->
+<div class="recommended-vehicle">
+  <div data-testid="VehicleTileNameBase">2025 IS 350</div>
+  <div data-testid="PriceBase">$44,000</div>
+  <div data-testid="DGSaveHeart" id="dg-inline-saves-inv-JTHBP1D20R5012345-vehicle-tile"></div>
+</div>

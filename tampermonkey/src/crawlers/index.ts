@@ -14,10 +14,14 @@ import { carmaxCrawler } from './carmax/index.js';
 import { carvanaCrawler } from './carvana/index.js';
 import { linkedinCrawler } from './linkedin/index.js';
 import { autotraderCrawler } from './autotrader/index.js';
+import { lexusCrawler } from './lexus/index.js';
+import { toyotaCrawler } from './toyota/index.js';
 
 export const crawlers: SiteCrawler[] = [
   carmaxCrawler,
   carvanaCrawler,
   linkedinCrawler,
   autotraderCrawler,
+  lexusCrawler,
+  toyotaCrawler,
 ];

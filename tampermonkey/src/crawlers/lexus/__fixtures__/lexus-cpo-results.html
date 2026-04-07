@@ -1,0 +1,107 @@
+<!-- Lexus L/Certified (CPO) search inventory results fixture -->
+<!-- 3 real cards + 1 card with missing VIN (should produce an error) -->
+<div id="LcertSearchInventory">
+  <h2 class="dynamic-heading heading">L/CERTIFIED VEHICLES</h2>
+
+  <div class="card-grid">
+
+    <!-- Card 1: 2020 NX 300 F SPORT -->
+    <div data-testid="LCertSearchInventory">
+      <div data-testid="LCertInventoryTile">
+        <a href="?link[LcertSearchInventory][setVin]=JTJSARDZ4L2227037" aria-hidden="true" tabindex="-1" data-testid="Link">
+          <img src="https://lexus.assets.shiftdigitalinventory.com/images/JTJSARDZ4L2227037_1.jpg" alt="" role="presentation">
+        </a>
+        <div>
+          <div>
+            <div>
+              <div data-testid="Typography">2020 <span>NX 300 F SPORT</span></div>
+              <div data-testid="Typography">49,879 MILES</div>
+            </div>
+            <div data-testid="Typography">$33,528<span data-testid="DisclaimerTrigger">*</span></div>
+            <div data-testid="Typography">Lexus of Portland</div>
+          </div>
+          <div>
+            <a href="?link[LcertSearchInventory][setVin]=JTJSARDZ4L2227037" aria-label="VIEW DETAILS" data-testid="LexusButton">VIEW DETAILS</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: 2023 RX 350 F SPORT HANDLING AWD -->
+    <div data-testid="LCertSearchInventory">
+      <div data-testid="LCertInventoryTile">
+        <a href="?link[LcertSearchInventory][setVin]=2T2BAMCA7PC034627" aria-hidden="true" tabindex="-1" data-testid="Link">
+          <img src="https://lexus.assets.shiftdigitalinventory.com/images/2T2BAMCA7PC034627_1.jpg" alt="" role="presentation">
+        </a>
+        <div>
+          <div>
+            <div>
+              <div data-testid="Typography">2023 <span>RX 350 F SPORT HANDLING AWD</span></div>
+              <div data-testid="Typography">10,784 MILES</div>
+            </div>
+            <div data-testid="Typography">$53,407<span data-testid="DisclaimerTrigger">*</span></div>
+            <div data-testid="Typography">Lexus of Portland</div>
+          </div>
+          <div>
+            <a href="?link[LcertSearchInventory][setVin]=2T2BAMCA7PC034627" aria-label="VIEW DETAILS" data-testid="LexusButton">VIEW DETAILS</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: 2024 RX 500h F SPORT PERFORMANCE AWD — different dealer -->
+    <div data-testid="LCertSearchInventory">
+      <div data-testid="LCertInventoryTile">
+        <a href="?link[LcertSearchInventory][setVin]=2T2BCMEA1RC013413" aria-hidden="true" tabindex="-1" data-testid="Link">
+          <img src="https://lexus.assets.shiftdigitalinventory.com/images/2T2BCMEA1RC013413_1.jpg" alt="" role="presentation">
+        </a>
+        <div>
+          <div>
+            <div>
+              <div data-testid="Typography">2024 <span>RX 500h F SPORT PERFORMANCE AWD</span></div>
+              <div data-testid="Typography">17,675 MILES</div>
+            </div>
+            <div data-testid="Typography">$65,528<span data-testid="DisclaimerTrigger">*</span></div>
+            <div data-testid="Typography">Kuni Lexus of Portland</div>
+          </div>
+          <div>
+            <a href="?link[LcertSearchInventory][setVin]=2T2BCMEA1RC013413" aria-label="VIEW DETAILS" data-testid="LexusButton">VIEW DETAILS</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4: missing VIN in link — should produce an error -->
+    <div data-testid="LCertSearchInventory">
+      <div data-testid="LCertInventoryTile">
+        <div>
+          <div>
+            <div>
+              <div data-testid="Typography">2022 <span>IS 350 F SPORT</span></div>
+              <div data-testid="Typography">25,000 MILES</div>
+            </div>
+            <div data-testid="Typography">$40,999<span data-testid="DisclaimerTrigger">*</span></div>
+            <div data-testid="Typography">Lexus of Beaverton</div>
+          </div>
+          <div>
+            <a href="?link[LcertSearchInventory][setVin]=INVALID" aria-label="VIEW DETAILS" data-testid="LexusButton">VIEW DETAILS</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <nav aria-label="L/Certified inventory search results pagination" data-testid="Typography">
+    <div><span>1</span>/1</div>
+  </nav>
+</div>
+
+<!-- Card outside the main container — should be excluded -->
+<div data-testid="LCertInventoryTile">
+  <a href="?link[LcertSearchInventory][setVin]=JTHBP1D20R5012345" data-testid="LexusButton">VIEW DETAILS</a>
+  <div data-testid="Typography">2021 <span>ES 350</span></div>
+  <div data-testid="Typography">30,000 MILES</div>
+  <div data-testid="Typography">$35,000</div>
+  <div data-testid="Typography">Some Other Dealer</div>
+</div>

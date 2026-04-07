@@ -336,4 +336,206 @@ export const crawlerDefinitions: CrawlerDefinition[] = [
       },
     ],
   },
+  {
+    id: 'lexus',
+    name: 'Lexus Inventory',
+    deriveTargetUrl: (config) => {
+      const listingType = config.listingType || 'new';
+      if (listingType === 'lcertified') {
+        return 'https://www.lexus.com/lcertified/search-inventory';
+      }
+      const model = (config.model || '').toUpperCase().replace(/\s+/g, '-');
+      if (!model) return null;
+      const zip = config.zip || '97201';
+      const distance = config.distance || 50;
+      return `https://www.lexus.com/search-inventory/model/${model}/?zipcode=${zip}&distance=${distance}`;
+    },
+    fields: [
+      {
+        id: 'listingType',
+        label: 'Listing Type',
+        type: 'select',
+        default: 'new',
+        options: [
+          { value: 'new', label: 'New Inventory' },
+          { value: 'lcertified', label: 'L/Certified Pre-Owned' },
+        ],
+      },
+      {
+        id: 'model',
+        label: 'Model',
+        type: 'text',
+        placeholder: 'e.g. RX',
+      },
+      {
+        id: 'yearMin',
+        label: 'Year Min',
+        type: 'number',
+      },
+      {
+        id: 'yearMax',
+        label: 'Year Max',
+        type: 'number',
+      },
+      {
+        id: 'zip',
+        label: 'ZIP Code',
+        type: 'text',
+        placeholder: '97201',
+      },
+      {
+        id: 'distance',
+        label: 'Distance (mi)',
+        type: 'number',
+        default: 50,
+      },
+      {
+        id: 'taskName',
+        label: 'Task Name',
+        type: 'text',
+        placeholder: 'Lexus RX 2026',
+      },
+      {
+        id: 'excludePatterns',
+        label: 'Exclude Patterns (comma-separated)',
+        type: 'text',
+        placeholder: 'F SPORT, Hybrid',
+      },
+      {
+        id: 'requirePatterns',
+        label: 'Require Patterns (comma-separated)',
+        type: 'text',
+        placeholder: 'Luxury',
+      },
+      {
+        id: 'strategy',
+        label: 'Crawl Strategy',
+        type: 'select',
+        default: 'full',
+        options: [
+          { value: 'full', label: 'Full — load all via LOAD MORE' },
+          { value: 'latest', label: 'Latest — current visible listings only' },
+        ],
+      },
+      {
+        id: 'runMode',
+        label: 'Run Mode',
+        type: 'select',
+        default: 'recurring',
+        options: [
+          { value: 'recurring', label: 'Recurring — re-crawl on a schedule' },
+          { value: 'once', label: 'One-time — complete after first crawl' },
+        ],
+      },
+      {
+        id: 'recrawlIntervalHours',
+        label: 'Re-crawl Interval (hours)',
+        type: 'number',
+        default: 24,
+        placeholder: '24',
+      },
+    ],
+  },
+  {
+    id: 'toyota',
+    name: 'Toyota Inventory',
+    deriveTargetUrl: (config) => {
+      const listingType = config.listingType || 'new';
+      if (listingType === 'cpo') {
+        const zip = config.zip || '97201';
+        const distance = config.distance || 25;
+        return `https://www.toyotacertified.com/inventory?zipCode=${zip}&radius=${distance}`;
+      }
+      const model = (config.model || '').toLowerCase().replace(/\s+/g, '-');
+      if (!model) return null;
+      const zip = config.zip || '97201';
+      const distance = config.distance || 50;
+      return `https://www.toyota.com/search-inventory/model/${model}/?zipcode=${zip}&distance=${distance}`;
+    },
+    fields: [
+      {
+        id: 'listingType',
+        label: 'Listing Type',
+        type: 'select',
+        default: 'new',
+        options: [
+          { value: 'new', label: 'New Inventory' },
+          { value: 'cpo', label: 'Certified Pre-Owned (TCUV)' },
+        ],
+      },
+      {
+        id: 'model',
+        label: 'Model',
+        type: 'text',
+        placeholder: 'e.g. camry',
+      },
+      {
+        id: 'yearMin',
+        label: 'Year Min',
+        type: 'number',
+      },
+      {
+        id: 'yearMax',
+        label: 'Year Max',
+        type: 'number',
+      },
+      {
+        id: 'zip',
+        label: 'ZIP Code',
+        type: 'text',
+        placeholder: '97201',
+      },
+      {
+        id: 'distance',
+        label: 'Distance (mi)',
+        type: 'number',
+        default: 50,
+      },
+      {
+        id: 'taskName',
+        label: 'Task Name',
+        type: 'text',
+        placeholder: 'Toyota Camry 2026',
+      },
+      {
+        id: 'excludePatterns',
+        label: 'Exclude Patterns (comma-separated)',
+        type: 'text',
+        placeholder: 'XSE, TRD',
+      },
+      {
+        id: 'requirePatterns',
+        label: 'Require Patterns (comma-separated)',
+        type: 'text',
+        placeholder: 'LE',
+      },
+      {
+        id: 'strategy',
+        label: 'Crawl Strategy',
+        type: 'select',
+        default: 'full',
+        options: [
+          { value: 'full', label: 'Full — load all via LOAD MORE' },
+          { value: 'latest', label: 'Latest — current visible listings only' },
+        ],
+      },
+      {
+        id: 'runMode',
+        label: 'Run Mode',
+        type: 'select',
+        default: 'recurring',
+        options: [
+          { value: 'recurring', label: 'Recurring — re-crawl on a schedule' },
+          { value: 'once', label: 'One-time — complete after first crawl' },
+        ],
+      },
+      {
+        id: 'recrawlIntervalHours',
+        label: 'Re-crawl Interval (hours)',
+        type: 'number',
+        default: 24,
+        placeholder: '24',
+      },
+    ],
+  },
 ];

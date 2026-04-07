@@ -1,0 +1,101 @@
+<!-- Toyota search inventory results fixture -->
+<!-- 4 cards in the TileGrid: SmartPath Camry LE, non-SmartPath Camry SE, Corolla Hybrid, and a build-phase RAV4 -->
+<div data-testid="VehicleGrid">
+  <div data-testid="TileGrid">
+
+    <!-- Card 1: SmartPath Camry LE (Hybrid, FWD) — Exact Match -->
+    <div>
+      <div data-testid="JellyCarouselBase">
+        <img src="https://media.rti.toyota.com/adobe/assets/camry-le-blue.png?size=315,215" alt="2026 Camry LE">
+      </div>
+      <div data-testid="VehicleTileNameBase">Camry LE</div>
+      <div data-testid="PriceBaseToyota">$30,814Dealer Advertised Price*Total SRP*$30,814</div>
+      <div data-testid="DealerBaseToyota">Toyota of Portland on Broadway (1 mi)</div>
+      <div data-testid="VehicleTagsBase">HybridFront-Wheel Drive</div>
+      <div data-testid="StatusMatchToyotaBase">
+        <img alt="Toyota smart path" src="/smart-path-icon.svg">
+        Exact Match
+      </div>
+      <div data-testid="BuildPhaseBase"></div>
+      <div data-testid="CTASBase">
+        <a href="https://smartpath.toyota.com/inventory/details?source=t1&amp;dealerCd=36097&amp;vin=4T1DAACK5TU18C972&amp;type=new">View Details</a>
+      </div>
+      <div data-testid="CompareToggleBase">
+        <input type="checkbox" aria-label="4T1DAACK5TU18C972-compare-vehicle-toggle">
+      </div>
+      <div data-testid="DGSaveHeart" id="dg-inline-saves-inv-4T1DAACK5TU18C972-vehicle-tile"></div>
+    </div>
+
+    <!-- Card 2: Non-SmartPath Camry SE (different dealer, no SmartPath icon) -->
+    <div>
+      <div data-testid="JellyCarouselBase">
+        <img src="https://media.rti.toyota.com/adobe/assets/camry-se-red.png?size=315,215" alt="2026 Camry SE">
+      </div>
+      <div data-testid="VehicleTileNameBase">Camry SE</div>
+      <div data-testid="PriceBaseToyota">$32,990Total SRP*$32,990</div>
+      <div data-testid="DealerBaseToyota">Beaverton Toyota (12 mi)</div>
+      <div data-testid="VehicleTagsBase">HybridAll-Wheel Drive</div>
+      <div data-testid="StatusMatchToyotaBase">Exact Match</div>
+      <div data-testid="BuildPhaseBase"></div>
+      <div data-testid="CTASBase">
+        <a href="https://www.beavertontoyota.com/inventory/details?vin=4T1DAACK1TU22B456">View Details</a>
+      </div>
+      <div data-testid="CompareToggleBase">
+        <input type="checkbox" aria-label="4T1DAACK1TU22B456-compare-vehicle-toggle">
+      </div>
+      <div data-testid="DGSaveHeart" id="dg-inline-saves-inv-4T1DAACK1TU22B456-vehicle-tile"></div>
+    </div>
+
+    <!-- Card 3: Corolla Hybrid LE — different model -->
+    <div>
+      <div data-testid="JellyCarouselBase">
+        <img src="https://media.rti.toyota.com/adobe/assets/corolla-hybrid-white.png?size=315,215" alt="2026 Corolla Hybrid LE">
+      </div>
+      <div data-testid="VehicleTileNameBase">Corolla Hybrid LE</div>
+      <div data-testid="PriceBaseToyota">$24,050Dealer Advertised Price*Total SRP*$24,050</div>
+      <div data-testid="DealerBaseToyota">Gladstone Toyota (8 mi)</div>
+      <div data-testid="VehicleTagsBase">HybridFront-Wheel Drive</div>
+      <div data-testid="StatusMatchToyotaBase">
+        <img alt="Toyota smart path" src="/smart-path-icon.svg">
+        Exact Match
+      </div>
+      <div data-testid="BuildPhaseBase"></div>
+      <div data-testid="CTASBase">
+        <a href="https://smartpath.toyota.com/inventory/details?source=t1&amp;dealerCd=36200&amp;vin=JTDBAMDE5TJ12A789&amp;type=new">View Details</a>
+      </div>
+      <div data-testid="CompareToggleBase">
+        <input type="checkbox" aria-label="JTDBAMDE5TJ12A789-compare-vehicle-toggle">
+      </div>
+      <div data-testid="DGSaveHeart" id="dg-inline-saves-inv-JTDBAMDE5TJ12A789-vehicle-tile"></div>
+    </div>
+
+    <!-- Card 4: RAV4 with build phase / in transit status -->
+    <div>
+      <div data-testid="JellyCarouselBase">
+        <img src="https://media.rti.toyota.com/adobe/assets/rav4-xle-silver.png?size=315,215" alt="2026 RAV4 XLE">
+      </div>
+      <div data-testid="VehicleTileNameBase">RAV4 XLE</div>
+      <div data-testid="PriceBaseToyota">$35,275Total SRP*$35,275</div>
+      <div data-testid="DealerBaseToyota">Ron Tonkin Toyota (5 mi)</div>
+      <div data-testid="VehicleTagsBase">GasolineAll-Wheel Drive</div>
+      <div data-testid="StatusMatchToyotaBase">Similar Match</div>
+      <div data-testid="BuildPhaseBase">Vehicle is in build phase. Estimated availability 05/22/26 - 06/12/26.</div>
+      <div data-testid="CTASBase">
+        <a href="https://smartpath.toyota.com/inventory/details?source=t1&amp;dealerCd=36150&amp;vin=2T3P1RFV8TW34D567&amp;type=new">View Details</a>
+      </div>
+      <div data-testid="CompareToggleBase">
+        <input type="checkbox" aria-label="2T3P1RFV8TW34D567-compare-vehicle-toggle">
+      </div>
+      <div data-testid="DGSaveHeart" id="dg-inline-saves-inv-2T3P1RFV8TW34D567-vehicle-tile"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Content outside TileGrid — should be excluded -->
+<div class="similar-vehicles">
+  <div>
+    <div data-testid="DGSaveHeart" id="dg-inline-saves-inv-JTDKN3DU5A0123456-vehicle-tile"></div>
+    <div data-testid="VehicleTileNameBase">Prius LE</div>
+  </div>
+</div>
