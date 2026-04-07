@@ -11,10 +11,7 @@ export interface SiteCrawler {
 }
 
 import { carmaxCrawler } from './carmax/index.js';
+import { carvanaCrawler } from './carvana/index.js';
 import { linkedinCrawler } from './linkedin/index.js';
 
-export const crawlers: SiteCrawler[] = [
-  carmaxCrawler,
-  linkedinCrawler,
-  // Add more here
-];
+export const crawlers: SiteCrawler[] = [carmaxCrawler, carvanaCrawler, linkedinCrawler];
