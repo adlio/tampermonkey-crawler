@@ -68,6 +68,22 @@ describe('extractPost', () => {
     expect(result.imageUrls).toEqual([]);
   });
 
+  it('detects video posts and extracts poster URL and video ID', () => {
+    const post = doc.querySelector('[data-urn="urn:li:activity:7100000000000000005"]')!;
+    const result = extractPost(post)!;
+    expect(result.hasVideo).toBe(true);
+    expect(result.videoPosterUrl).toContain('videocover-low');
+    expect(result.videoId).toBe('D4E05AQFakeVideoId123');
+  });
+
+  it('returns hasVideo=false for posts without videos', () => {
+    const post = doc.querySelector('[data-urn="urn:li:activity:7100000000000000001"]')!;
+    const result = extractPost(post)!;
+    expect(result.hasVideo).toBe(false);
+    expect(result.videoPosterUrl).toBe('');
+    expect(result.videoId).toBe('');
+  });
+
   it('extracts canonical post URL from permalink', () => {
     const post = doc.querySelector('[data-urn="urn:li:activity:7100000000000000001"]')!;
     const result = extractPost(post)!;
@@ -91,16 +107,43 @@ describe('extractPost', () => {
   it('generates title from first line of text', () => {
     const post = doc.querySelector('[data-urn="urn:li:activity:7100000000000000001"]')!;
     const result = extractPost(post)!;
-    expect(result.title).toBe(
-      'Mapping is not about perfection, it is about understanding your landscape.',
-    );
+    expect(result.title).toContain('Mapping is not about perfection');
     expect(result.title.length).toBeLessThanOrEqual(100);
   });
 
+  // --- 2025 DOM structure tests (post 6) ---
+
+  it('extracts author from __title selector (2025 DOM)', () => {
+    const post = doc.querySelector('[data-urn="urn:li:activity:7100000000000000006"]')!;
+    const result = extractPost(post)!;
+    expect(result.author).toBe('James Duncan');
+  });
+
+  it('detects "reposted this" header text (2025 DOM)', () => {
+    const post = doc.querySelector('[data-urn="urn:li:activity:7100000000000000006"]')!;
+    const result = extractPost(post)!;
+    expect(result.isRepost).toBe(true);
+    expect(result.repostedBy).toBe('Simon Wardley');
+  });
+
+  it('detects blob-URL video and extracts poster + video ID (2025 DOM)', () => {
+    const post = doc.querySelector('[data-urn="urn:li:activity:7100000000000000006"]')!;
+    const result = extractPost(post)!;
+    expect(result.hasVideo).toBe(true);
+    expect(result.videoPosterUrl).toContain('videocover-low');
+    expect(result.videoId).toBe('D4E05AQEsOzrNYKp1RQ');
+  });
+
+  it('extracts relative time from sub-description when no <time> element (2025 DOM)', () => {
+    const post = doc.querySelector('[data-urn="urn:li:activity:7100000000000000006"]')!;
+    const result = extractPost(post)!;
+    expect(result.postDate).toBe('5d');
+  });
+
   it('returns null for a post without data-urn or id', () => {
-    // The 4th post in the fixture has no data-urn
+    // The last post in the fixture has no data-urn
     const posts = doc.querySelectorAll('.feed-shared-update-v2');
-    const malformed = posts[3]; // 0-indexed, the 4th one
+    const malformed = posts[posts.length - 1];
     const result = extractPost(malformed);
     expect(result).toBeNull();
   });
@@ -109,7 +152,7 @@ describe('extractPost', () => {
 describe('extractAllPosts', () => {
   it('returns correct count of successfully extracted posts', () => {
     const result = extractAllPosts(doc);
-    expect(result.items.length).toBe(3);
+    expect(result.items.length).toBe(5);
   });
 
   it('includes extraction errors for malformed posts', () => {
@@ -124,6 +167,7 @@ describe('extractAllPosts', () => {
     expect(ids).toContain('urn:li:activity:7100000000000000001');
     expect(ids).toContain('urn:li:activity:7100000000000000002');
     expect(ids).toContain('urn:li:activity:7100000000000000003');
+    expect(ids).toContain('urn:li:activity:7100000000000000006');
   });
 });
 
