@@ -110,6 +110,8 @@ describe('extractListing', () => {
     expect(result.isPriceDrop).toBe(false);
     expect(result.isNewlyListed).toBe(false);
     expect(result.vhrBadge).toBe('No Accidents');
+    // Gasoline vehicles omit .fuel-type element entirely (verified Apr 2026)
+    expect(result.fuelType).toBeNull();
   });
 
   it('handles multi-word make (Mercedes-Benz)', () => {
@@ -137,6 +139,24 @@ describe('extractListing', () => {
     card.setAttribute('data-cmp', 'inventoryListing');
     card.innerHTML = '<h2 data-cmp="subheading">2025 Rivian R1S</h2>';
     expect(extractListing(card)).toBeNull();
+  });
+
+  it('swaps trim/mileage when positional order is reversed', () => {
+    const card = document.createElement('div');
+    card.id = 'swap-test';
+    card.setAttribute('data-cmp', 'inventoryListing');
+    card.innerHTML = `
+      <h2 data-cmp="subheading">2025 Rivian R1S</h2>
+      <a data-cmp="link" href="/test"></a>
+      <div data-cmp="listingSpecifications">
+        <ul><li>50K mi</li><li>Adventure</li></ul>
+      </div>
+      <div data-cmp="firstPrice">60,000</div>
+    `;
+    const result = extractListing(card)!;
+    // When li[0] matches mileage regex instead of li[1], swap so mileage/trim are correct
+    expect(result.mileage).toBe('50K mi');
+    expect(result.trim).toBe('Adventure');
   });
 });
 

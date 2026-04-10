@@ -459,6 +459,88 @@ describe('extractCPOListing', () => {
     expect(result.model).toBe('ES 350');
     expect(result.trim).toBeNull();
   });
+
+  it('handles missing price gracefully', () => {
+    const container = document.createElement('div');
+    container.innerHTML = makeCPOCardHtml({ price: '' });
+    const card = container.querySelector('[data-testid="LCertInventoryTile"]')!;
+    const result = extractCPOListing(card)!;
+    expect(result).not.toBeNull();
+    expect(result.price).toBeNull();
+  });
+
+  it('handles missing dealer gracefully', () => {
+    const container = document.createElement('div');
+    container.innerHTML = makeCPOCardHtml({ dealer: '' });
+    const card = container.querySelector('[data-testid="LCertInventoryTile"]')!;
+    const result = extractCPOListing(card)!;
+    expect(result).not.toBeNull();
+    expect(result.dealer).toBeNull();
+  });
+
+  it('identifies price by DisclaimerTrigger even without $ prefix', () => {
+    const container = document.createElement('div');
+    // Price text that starts with a number but has DisclaimerTrigger child
+    container.innerHTML = `
+      <div data-testid="LCertInventoryTile">
+        <a href="?link[LcertSearchInventory][setVin]=JTJSARDZ4L2227037" data-testid="Link">
+          <img src="https://example.com/img.jpg" alt="" role="presentation">
+        </a>
+        <div>
+          <div>
+            <div>
+              <div data-testid="Typography">2020 <span>NX 300 F SPORT</span></div>
+              <div data-testid="Typography">49,879 MILES</div>
+            </div>
+            <div data-testid="Typography">33,528<span data-testid="DisclaimerTrigger">*</span></div>
+            <div data-testid="Typography">Lexus of Portland</div>
+          </div>
+          <div>
+            <a href="?link[LcertSearchInventory][setVin]=JTJSARDZ4L2227037" aria-label="VIEW DETAILS" data-testid="LexusButton">VIEW DETAILS</a>
+          </div>
+        </div>
+      </div>
+    `;
+    const card = container.querySelector('[data-testid="LCertInventoryTile"]')!;
+    const result = extractCPOListing(card)!;
+    expect(result).not.toBeNull();
+    // Price extraction should still work because we match the DisclaimerTrigger
+    expect(result.dealer).toBe('Lexus of Portland');
+  });
+
+  it('extracts fields correctly when Typography order is shuffled', () => {
+    const vin = 'JTJSARDZ4L2227037';
+    const container = document.createElement('div');
+    // Dealer, price, mileage, title — reversed from normal order
+    container.innerHTML = `
+      <div data-testid="LCertInventoryTile">
+        <a href="?link[LcertSearchInventory][setVin]=${vin}" data-testid="Link">
+          <img src="https://example.com/img.jpg" alt="" role="presentation">
+        </a>
+        <div>
+          <div>
+            <div data-testid="Typography">Kuni Lexus of Portland</div>
+            <div data-testid="Typography">$42,000<span data-testid="DisclaimerTrigger">*</span></div>
+            <div data-testid="Typography">30,000 MILES</div>
+            <div data-testid="Typography">2021 <span>ES 350</span></div>
+          </div>
+          <div>
+            <a href="?link[LcertSearchInventory][setVin]=${vin}" aria-label="VIEW DETAILS" data-testid="LexusButton">VIEW DETAILS</a>
+          </div>
+        </div>
+      </div>
+    `;
+    const card = container.querySelector('[data-testid="LCertInventoryTile"]')!;
+    const result = extractCPOListing(card)!;
+    expect(result).not.toBeNull();
+    expect(result.vin).toBe(vin);
+    expect(result.year).toBe(2021);
+    expect(result.model).toBe('ES 350');
+    expect(result.trim).toBeNull();
+    expect(result.mileage).toBe(30000);
+    expect(result.price).toBe(42000);
+    expect(result.dealer).toBe('Kuni Lexus of Portland');
+  });
 });
 
 describe('extractAllCPOListings', () => {

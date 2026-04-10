@@ -226,6 +226,11 @@ export const CPO_TILE_SELECTOR = '[data-testid="LCertInventoryTile"]';
 
 const VIN_FROM_SETVIN = /setVin\]=([A-HJ-NPR-Z0-9]{17})/;
 
+// Pattern matchers for identifying Typography elements by content, not position.
+const YEAR_PREFIX_RE = /^\d{4}\s+/;
+const MILEAGE_RE = /^[\d,]+\s+MILES$/i;
+const PRICE_RE = /^\$/;
+
 export function extractCPOListing(card: Element): LexusCPOListing | null {
   // VIN: extract from the VIEW DETAILS link href
   const detailLink = card.querySelector<HTMLAnchorElement>('[data-testid="LexusButton"]');
@@ -234,12 +239,32 @@ export function extractCPOListing(card: Element): LexusCPOListing | null {
   if (!vinMatch) return null;
   const vin = vinMatch[1];
 
-  // Year + model/trim from the title Typography element.
-  // Structure: "<year> <span>MODEL TRIM</span>"
-  // The first Typography child inside the info block has year + model.
+  // Identify Typography elements by content patterns rather than position.
+  // The live DOM has exactly 4 Typography elements per card, but their order
+  // could theoretically change. Using content-based matching is more durable.
   const typographies = card.querySelectorAll('[data-testid="Typography"]');
-  // typographies[0] = year + model, [1] = mileage, [2] = price, [3] = dealer
-  const titleEl = typographies[0] ?? null;
+
+  let titleEl: Element | null = null;
+  let mileageText = '';
+  let priceText = '';
+  let dealer: string | null = null;
+
+  for (const el of typographies) {
+    const text = el.textContent?.trim() ?? '';
+    if (!text) continue;
+
+    if (YEAR_PREFIX_RE.test(text)) {
+      titleEl = el;
+    } else if (MILEAGE_RE.test(text)) {
+      mileageText = text;
+    } else if (PRICE_RE.test(text) || el.querySelector('[data-testid="DisclaimerTrigger"]')) {
+      priceText = text;
+    } else {
+      // Remaining unmatched Typography is the dealer name
+      dealer = text;
+    }
+  }
+
   const titleText = titleEl?.textContent?.trim() ?? '';
   if (!titleText) return null;
 
@@ -251,30 +276,19 @@ export function extractCPOListing(card: Element): LexusCPOListing | null {
   const modelSpan = titleEl?.querySelector('span');
   const modelTrimText = modelSpan?.textContent?.trim() ?? '';
   // Split into model (first word or two) and trim (rest).
-  // Model is the first token that looks like a model name (e.g. "NX", "RX", "IS").
-  // For "RX 350 F SPORT HANDLING AWD" -> model="RX 350", trim="F SPORT HANDLING AWD"
-  // For "NX 300 F SPORT" -> model="NX 300", trim="F SPORT"
-  // For "RX 500h F SPORT PERFORMANCE AWD" -> model="RX 500h", trim="F SPORT PERFORMANCE AWD"
-  // Pattern: model is the series name + optional number suffix
+  // Model is the series name + number suffix (e.g. "NX 300", "RX 350", "RX 500h").
+  // Trim is everything after (e.g. "F SPORT", "F SPORT HANDLING AWD").
   const modelTrimMatch = modelTrimText.match(/^(\S+\s+\S+?)(?:\s+(.+))?$/);
   const model = modelTrimMatch ? modelTrimMatch[1] : modelTrimText || null;
   const trim = modelTrimMatch?.[2] ?? null;
 
-  // Mileage: "49,879 MILES"
-  const mileageEl = typographies[1] ?? null;
-  const mileageText = mileageEl?.textContent?.trim() ?? '';
+  // Mileage: "49,879 MILES" -> 49879
   const mileageMatch = mileageText.replace(/,/g, '').match(/^(\d+)\s+MILES$/i);
   const mileage = mileageMatch ? parseInt(mileageMatch[1], 10) : null;
 
-  // Price: "$33,528*" — extract digits only
-  const priceEl = typographies[2] ?? null;
-  const priceText = priceEl?.textContent?.trim() ?? '';
+  // Price: "$33,528*" -> 33528
   const priceMatch = priceText.replace(/,/g, '').match(/\$(\d+)/);
   const price = priceMatch ? parseInt(priceMatch[1], 10) : null;
-
-  // Dealer
-  const dealerEl = typographies[3] ?? null;
-  const dealer = dealerEl?.textContent?.trim() ?? null;
 
   // Detail URL
   const detailUrl = href || null;

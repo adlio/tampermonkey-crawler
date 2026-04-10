@@ -1,5 +1,6 @@
 <!-- AutoTrader search results fixture -->
 <!-- 5 real listings in the results container + 1 sponsored card (no data-qaid) + 1 supplemental outside container -->
+<!-- Updated Apr 2026 from live CDP recon (tab 780F8357) -->
 <div data-cmp="cntnr-listings" id="srp-listings">
   <div id="listings-grid">
 
@@ -13,15 +14,15 @@
                 <div class="display-flex justify-content-between">
                   <div data-cmp="listing-title-info" class="title-info">
                     <span data-cmp="listingCondition" class="condition">Used</span>
-                    <a data-cmp="link" href="/cars-for-sale/vehicle/999999999?clickType=spotlight">
-                      <h2 data-cmp="subheading" class="text-bold text-size-400">2023 Rivian R1S</h2>
+                    <a data-cmp="link" class="link-undecorated" data-next-link="true" href="/cars-for-sale/vehicle/999999999?clickType=spotlight">
+                      <h2 data-cmp="subheading" class="text-bold text-size-400 text-overflow padding-vertical-1 link-unstyled">2023 Rivian R1S</h2>
                     </a>
                     <div data-cmp="listingSpecifications" class="specifications">
-                      <ul data-cmp="list" class="list list-inline">
-                        <li><span>Adventure</span></li>
-                        <li>10K mi</li>
+                      <ul data-cmp="list" class="list list-inline display-inline-block margin-bottom-0">
+                        <li class="display-inline-flex align-items-center"><span>Adventure</span></li>
+                        <li class="display-inline-flex align-items-center">10K mi</li>
                       </ul>
-                      <span class="fuel-type">Electric</span>
+                      <span class="fuel-type"><span class="glyphicon glyphicon-electric"></span>&nbsp;Electric</span>
                     </div>
                   </div>
                 </div>
@@ -35,12 +36,20 @@
       </div>
     </div>
 
-    <!-- Card 1: Newly Listed, with VHR badge -->
+    <!-- Card 1: Newly Listed, with VHR badge, Electric fuel type -->
     <div data-cmp="inventoryListing" class="inventory-listing image-fixed-height cursor-pointer display-flex flex-column rounded-lg panel panel-default" id="776711560" data-qaid="cntnr-listing-776711560">
       <div class="padding-0 display-flex flex-grow-1 flex-column panel-body">
         <div class="overlay-actions-container padding-top-2 padding-horizontal-0 col-xs-12">
           <div class="overlay-glyphs display-flex flex-wrap gap-1 align-items-start col-xs-9 col-10">
             <span data-cmp="newlyListed" class="label label-inverse">Newly Listed</span>
+          </div>
+          <div class="overlay-glyphs display-flex align-items-center justify-content-end col-xs-3 col-2">
+            <span class="display-inline-block save-glyph-background save-glyph-background-circle text-link link-undecorated" role="button" aria-label="Save vehicle">
+              <span data-cmp="saveGlyph" class="glyphicon-stack save-glyph-interactive save-glyph text-size-600 cursor-pointer">
+                <span class="transparent glyphicon glyphicon-heart"></span>
+                <span class="text-accent glyphicon glyphicon-heart-o"></span>
+              </span>
+            </span>
           </div>
         </div>
         <div data-cmp="itemCard" class="row item-card display-flex align-items-stretch flex-grow-1 flex-column">
@@ -48,8 +57,8 @@
             <div>
               <div data-cmp="inventoryListImage" class="positioned-overlay inventory-listing-media text-center">
                 <div class="positioned-overlay-wrapper">
-                  <div data-cmp="positionedOverlayBase" class="positioned-overlay-base image-container">
-                    <img data-cmp="inventoryImage" width="408" height="306" src="https://images2.autotrader.com/hn/c/b3a60982c6654b1385c1066847c9d03f.jpg?format=auto&amp;width=408&amp;height=306" alt="">
+                  <div data-cmp="positionedOverlayBase" class="positioned-overlay-base image-container bg-gray-darker">
+                    <img class="img-responsive-scale img-vertically-aligned" data-cmp="inventoryImage" width="408" height="306" src="https://images2.autotrader.com/hn/c/b3a60982c6654b1385c1066847c9d03f.jpg?format=auto&amp;width=408&amp;height=306" loading="lazy" alt="">
                   </div>
                 </div>
               </div>
@@ -62,25 +71,26 @@
                   <div class="display-flex justify-content-between">
                     <div data-cmp="listing-title-info" class="title-info">
                       <span data-cmp="listingCondition" class="condition">Used</span>
-                      <a data-cmp="link" title="Used 2025 Rivian R1S Adventure" href="/cars-for-sale/vehicle/776711560?makeCode=RIVIAN&amp;modelCode=RIVIANR1S&amp;clickType=listing">
-                        <h2 data-cmp="subheading" class="text-bold text-size-400">2025 Rivian R1S</h2>
+                      <a data-cmp="link" class="link-undecorated" title="Used 2025 Rivian R1S Adventure" data-next-link="true" href="/cars-for-sale/vehicle/776711560?makeCode=RIVIAN&amp;modelCode=RIVIANR1S&amp;clickType=listing">
+                        <h2 data-cmp="subheading" class="text-bold text-size-400 text-overflow padding-vertical-1 link-unstyled">2025 Rivian R1S</h2>
                       </a>
                       <div data-cmp="listingSpecifications" class="specifications">
-                        <ul data-cmp="list" class="list list-inline">
-                          <li><span class="text-overflow">Adventure</span></li>
-                          <li>6K mi</li>
+                        <ul data-cmp="list" class="list list-inline display-inline-block margin-bottom-0">
+                          <li class="display-inline-flex align-items-center"><span class="text-overflow">Adventure</span></li>
+                          <li class="display-inline-flex align-items-center">6K mi</li>
                         </ul>
                         <span class="fuel-type"><span class="glyphicon glyphicon-electric"></span>&nbsp;Electric</span>
                       </div>
                     </div>
                   </div>
                   <div class="pricing-payments display-flex flex-column margin-bottom-4 fixed-height">
-                    <div data-cmp="pricing" class="price-version-2">
+                    <div data-cmp="pricing" class="price-version-2 align-items-end display-flex flex-wrap">
                       <div class="text-size-500 text-ultra-bold first-price text-gray-base" data-cmp="firstPrice">71,900</div>
                     </div>
+                    <span class="text-size-200 text-link link-undecorated" tabindex="0" role="button">See payment</span>
                   </div>
-                  <div data-cmp="ListingBadges">
-                    <a data-cmp="VHRBadge" role="link" href="/cars-for-sale/vehicle/776711560#purchaseConfidence">
+                  <div class="iris:flex iris:flex-wrap iris:items-baseline iris:gap-2 iris:mb-1" data-cmp="ListingBadges">
+                    <a tabindex="0" href="/cars-for-sale/vehicle/776711560#purchaseConfidence" data-cmp="VHRBadge" role="link">
                       <div>No Accidents</div>
                     </a>
                   </div>
@@ -89,15 +99,18 @@
             </div>
             <div class="item-card-footer margin-top-auto">
               <div class="listing-footer text-subdued-lightest text-size-100 padding-horizontal-4 padding-bottom-2">
+                <hr aria-hidden="true">
                 <div class="static-height-footer display-flex flex-column" data-cmp="cntnr-listing-footer">
                   <div class="text-left margin-bottom-2">
                     <div class="text-subdued"><span class="padding-left-1 ellipsis-truncated">Maserati Tampa</span></div>
                     <div class="display-flex">
-                      <ul data-cmp="list" class="list list-inline">
-                        <li>
-                          <div data-cmp="ownerDistance" class="text-subdued"><span class="text-normal">2496.48 mi. away</span></div>
+                      <ul data-cmp="list" class="list list-inline display-inline-block margin-bottom-0" role="presentation">
+                        <li class="display-inline-flex align-items-center no-list-decoration">
+                          <div class="display-flex align-items-center">
+                            <div data-cmp="ownerDistance" class="text-subdued"><span class="text-normal">2496.48 mi. away</span></div>
+                          </div>
                         </li>
-                        <li>
+                        <li class="display-inline-flex align-items-center no-list-decoration">
                           <div data-cmp="contactInfo"><span data-cmp="phoneNumber">(833) 884-2351</span></div>
                         </li>
                       </ul>
@@ -111,12 +124,20 @@
       </div>
     </div>
 
-    <!-- Card 2: Price Drop, no VHR badge -->
+    <!-- Card 2: Price Drop, no VHR badge, Electric fuel type -->
     <div data-cmp="inventoryListing" class="inventory-listing image-fixed-height cursor-pointer display-flex flex-column rounded-lg panel panel-default" id="773906951" data-qaid="cntnr-listing-773906951">
       <div class="padding-0 display-flex flex-grow-1 flex-column panel-body">
         <div class="overlay-actions-container padding-top-2 padding-horizontal-0 col-xs-12">
           <div class="overlay-glyphs display-flex flex-wrap gap-1 align-items-start col-xs-9 col-10">
             <span data-cmp="reducedPrice" class="label label-inverse">Price Drop</span>
+          </div>
+          <div class="overlay-glyphs display-flex align-items-center justify-content-end col-xs-3 col-2">
+            <span class="display-inline-block save-glyph-background save-glyph-background-circle text-link link-undecorated" role="button" aria-label="Save vehicle">
+              <span data-cmp="saveGlyph" class="glyphicon-stack save-glyph-interactive save-glyph text-size-600 cursor-pointer">
+                <span class="transparent glyphicon glyphicon-heart"></span>
+                <span class="text-accent glyphicon glyphicon-heart-o"></span>
+              </span>
+            </span>
           </div>
         </div>
         <div data-cmp="itemCard" class="row item-card display-flex align-items-stretch flex-grow-1 flex-column">
@@ -124,8 +145,8 @@
             <div>
               <div data-cmp="inventoryListImage" class="positioned-overlay inventory-listing-media text-center">
                 <div class="positioned-overlay-wrapper">
-                  <div data-cmp="positionedOverlayBase" class="positioned-overlay-base image-container">
-                    <img data-cmp="inventoryImage" width="408" height="306" src="https://images2.autotrader.com/hn/c/31e1e47ecf1d4395a67150d5c1c9b598.jpg?format=auto&amp;width=408&amp;height=306" alt="">
+                  <div data-cmp="positionedOverlayBase" class="positioned-overlay-base image-container bg-gray-darker">
+                    <img class="img-responsive-scale img-vertically-aligned" data-cmp="inventoryImage" width="408" height="306" src="https://images2.autotrader.com/hn/c/31e1e47ecf1d4395a67150d5c1c9b598.jpg?format=auto&amp;width=408&amp;height=306" loading="lazy" alt="">
                   </div>
                 </div>
               </div>
@@ -138,35 +159,39 @@
                   <div class="display-flex justify-content-between">
                     <div data-cmp="listing-title-info" class="title-info">
                       <span data-cmp="listingCondition" class="condition">Used</span>
-                      <a data-cmp="link" title="Used 2026 Rivian R1S Adventure" href="/cars-for-sale/vehicle/773906951?makeCode=RIVIAN&amp;clickType=listing">
-                        <h2 data-cmp="subheading" class="text-bold text-size-400">2026 Rivian R1S</h2>
+                      <a data-cmp="link" class="link-undecorated" title="Used 2026 Rivian R1S Adventure" data-next-link="true" href="/cars-for-sale/vehicle/773906951?makeCode=RIVIAN&amp;clickType=listing">
+                        <h2 data-cmp="subheading" class="text-bold text-size-400 text-overflow padding-vertical-1 link-unstyled">2026 Rivian R1S</h2>
                       </a>
                       <div data-cmp="listingSpecifications" class="specifications">
-                        <ul data-cmp="list" class="list list-inline">
-                          <li><span class="text-overflow">Adventure</span></li>
-                          <li>1K mi</li>
+                        <ul data-cmp="list" class="list list-inline display-inline-block margin-bottom-0">
+                          <li class="display-inline-flex align-items-center"><span class="text-overflow">Adventure</span></li>
+                          <li class="display-inline-flex align-items-center">1K mi</li>
                         </ul>
                         <span class="fuel-type"><span class="glyphicon glyphicon-electric"></span>&nbsp;Electric</span>
                       </div>
                     </div>
                   </div>
                   <div class="pricing-payments display-flex flex-column margin-bottom-4 fixed-height">
-                    <div data-cmp="pricing" class="price-version-2">
+                    <div data-cmp="pricing" class="price-version-2 align-items-end display-flex flex-wrap">
                       <div class="text-size-500 text-ultra-bold first-price text-gray-base" data-cmp="firstPrice">77,990</div>
                     </div>
+                    <span class="text-size-200 text-link link-undecorated" tabindex="0" role="button">See payment</span>
                   </div>
                 </div>
               </div>
             </div>
             <div class="item-card-footer margin-top-auto">
               <div class="listing-footer text-subdued-lightest text-size-100 padding-horizontal-4 padding-bottom-2">
+                <hr aria-hidden="true">
                 <div class="static-height-footer display-flex flex-column" data-cmp="cntnr-listing-footer">
                   <div class="text-left margin-bottom-2">
                     <div class="text-subdued"><span class="padding-left-1 ellipsis-truncated">D&amp;C Motor Company</span></div>
                     <div class="display-flex">
-                      <ul data-cmp="list" class="list list-inline">
-                        <li>
-                          <div data-cmp="ownerDistance" class="text-subdued"><span class="text-normal">9.28 mi. away</span></div>
+                      <ul data-cmp="list" class="list list-inline display-inline-block margin-bottom-0" role="presentation">
+                        <li class="display-inline-flex align-items-center no-list-decoration">
+                          <div class="display-flex align-items-center">
+                            <div data-cmp="ownerDistance" class="text-subdued"><span class="text-normal">9.28 mi. away</span></div>
+                          </div>
                         </li>
                       </ul>
                     </div>
@@ -179,7 +204,7 @@
       </div>
     </div>
 
-    <!-- Card 3: Normal listing, no badges -->
+    <!-- Card 3: Normal listing, no badges, no fuel type (gasoline) -->
     <div data-cmp="inventoryListing" class="inventory-listing image-fixed-height cursor-pointer display-flex flex-column rounded-lg panel panel-default" id="772846828" data-qaid="cntnr-listing-772846828">
       <div class="padding-0 display-flex flex-grow-1 flex-column panel-body">
         <div data-cmp="itemCard" class="row item-card display-flex align-items-stretch flex-grow-1 flex-column">
@@ -187,8 +212,8 @@
             <div>
               <div data-cmp="inventoryListImage" class="positioned-overlay inventory-listing-media text-center">
                 <div class="positioned-overlay-wrapper">
-                  <div data-cmp="positionedOverlayBase" class="positioned-overlay-base image-container">
-                    <img data-cmp="inventoryImage" width="408" height="306" src="https://images2.autotrader.com/hn/c/9d2df683823a45f2bfb09f88e069611e.jpg?format=auto&amp;width=408&amp;height=306" alt="">
+                  <div data-cmp="positionedOverlayBase" class="positioned-overlay-base image-container bg-gray-darker">
+                    <img class="img-responsive-scale img-vertically-aligned" data-cmp="inventoryImage" width="408" height="306" src="https://images2.autotrader.com/hn/c/9d2df683823a45f2bfb09f88e069611e.jpg?format=auto&amp;width=408&amp;height=306" loading="lazy" alt="">
                   </div>
                 </div>
               </div>
@@ -201,25 +226,25 @@
                   <div class="display-flex justify-content-between">
                     <div data-cmp="listing-title-info" class="title-info">
                       <span data-cmp="listingCondition" class="condition">Used</span>
-                      <a data-cmp="link" title="Used 2022 Rivian R1S Launch Edition" href="/cars-for-sale/vehicle/772846828?makeCode=RIVIAN&amp;clickType=listing">
-                        <h2 data-cmp="subheading" class="text-bold text-size-400">2022 Rivian R1S</h2>
+                      <a data-cmp="link" class="link-undecorated" title="Used 2022 Rivian R1S Launch Edition" data-next-link="true" href="/cars-for-sale/vehicle/772846828?makeCode=RIVIAN&amp;clickType=listing">
+                        <h2 data-cmp="subheading" class="text-bold text-size-400 text-overflow padding-vertical-1 link-unstyled">2022 Rivian R1S</h2>
                       </a>
                       <div data-cmp="listingSpecifications" class="specifications">
-                        <ul data-cmp="list" class="list list-inline">
-                          <li><span class="text-overflow">Launch Edition</span></li>
-                          <li>36K mi</li>
+                        <ul data-cmp="list" class="list list-inline display-inline-block margin-bottom-0">
+                          <li class="display-inline-flex align-items-center"><span class="text-overflow">Launch Edition</span></li>
+                          <li class="display-inline-flex align-items-center">36K mi</li>
                         </ul>
-                        <span class="fuel-type"><span class="glyphicon glyphicon-electric"></span>&nbsp;Electric</span>
                       </div>
                     </div>
                   </div>
                   <div class="pricing-payments display-flex flex-column margin-bottom-4 fixed-height">
-                    <div data-cmp="pricing" class="price-version-2">
+                    <div data-cmp="pricing" class="price-version-2 align-items-end display-flex flex-wrap">
                       <div class="text-size-500 text-ultra-bold first-price text-gray-base" data-cmp="firstPrice">59,000</div>
                     </div>
+                    <span class="text-size-200 text-link link-undecorated" tabindex="0" role="button">See payment</span>
                   </div>
-                  <div data-cmp="ListingBadges">
-                    <a data-cmp="VHRBadge" role="link" href="/cars-for-sale/vehicle/772846828#purchaseConfidence">
+                  <div class="iris:flex iris:flex-wrap iris:items-baseline iris:gap-2 iris:mb-1" data-cmp="ListingBadges">
+                    <a tabindex="0" href="/cars-for-sale/vehicle/772846828#purchaseConfidence" data-cmp="VHRBadge" role="link">
                       <div>No Accidents</div>
                     </a>
                   </div>
@@ -228,13 +253,16 @@
             </div>
             <div class="item-card-footer margin-top-auto">
               <div class="listing-footer text-subdued-lightest text-size-100 padding-horizontal-4 padding-bottom-2">
+                <hr aria-hidden="true">
                 <div class="static-height-footer display-flex flex-column" data-cmp="cntnr-listing-footer">
                   <div class="text-left margin-bottom-2">
                     <div class="text-subdued"><span class="padding-left-1 ellipsis-truncated">Landers McLarty Honda</span></div>
                     <div class="display-flex">
-                      <ul data-cmp="list" class="list list-inline">
-                        <li>
-                          <div data-cmp="ownerDistance" class="text-subdued"><span class="text-normal">1724.9 mi. away</span></div>
+                      <ul data-cmp="list" class="list list-inline display-inline-block margin-bottom-0" role="presentation">
+                        <li class="display-inline-flex align-items-center no-list-decoration">
+                          <div class="display-flex align-items-center">
+                            <div data-cmp="ownerDistance" class="text-subdued"><span class="text-normal">1724.9 mi. away</span></div>
+                          </div>
                         </li>
                       </ul>
                     </div>
@@ -247,7 +275,7 @@
       </div>
     </div>
 
-    <!-- Card 4: New condition, Mercedes-Benz (multi-word make) -->
+    <!-- Card 4: New condition, Mercedes-Benz (multi-word make), Gasoline fuel type -->
     <div data-cmp="inventoryListing" class="inventory-listing image-fixed-height cursor-pointer display-flex flex-column rounded-lg panel panel-default" id="775024029" data-qaid="cntnr-listing-775024029">
       <div class="padding-0 display-flex flex-grow-1 flex-column panel-body">
         <div data-cmp="itemCard" class="row item-card display-flex align-items-stretch flex-grow-1 flex-column">
@@ -255,8 +283,8 @@
             <div>
               <div data-cmp="inventoryListImage" class="positioned-overlay inventory-listing-media text-center">
                 <div class="positioned-overlay-wrapper">
-                  <div data-cmp="positionedOverlayBase" class="positioned-overlay-base image-container">
-                    <img data-cmp="inventoryImage" width="408" height="306" src="https://images2.autotrader.com/hn/c/abcdef123456.jpg?format=auto&amp;width=408&amp;height=306" alt="">
+                  <div data-cmp="positionedOverlayBase" class="positioned-overlay-base image-container bg-gray-darker">
+                    <img class="img-responsive-scale img-vertically-aligned" data-cmp="inventoryImage" width="408" height="306" src="https://images2.autotrader.com/hn/c/abcdef123456.jpg?format=auto&amp;width=408&amp;height=306" loading="lazy" alt="">
                   </div>
                 </div>
               </div>
@@ -269,35 +297,39 @@
                   <div class="display-flex justify-content-between">
                     <div data-cmp="listing-title-info" class="title-info">
                       <span data-cmp="listingCondition" class="condition">New</span>
-                      <a data-cmp="link" title="New 2025 Mercedes-Benz GLC 300" href="/cars-for-sale/vehicle/775024029?clickType=listing">
-                        <h2 data-cmp="subheading" class="text-bold text-size-400">2025 Mercedes-Benz GLC 300</h2>
+                      <a data-cmp="link" class="link-undecorated" title="New 2025 Mercedes-Benz GLC 300" data-next-link="true" href="/cars-for-sale/vehicle/775024029?clickType=listing">
+                        <h2 data-cmp="subheading" class="text-bold text-size-400 text-overflow padding-vertical-1 link-unstyled">2025 Mercedes-Benz GLC 300</h2>
                       </a>
                       <div data-cmp="listingSpecifications" class="specifications">
-                        <ul data-cmp="list" class="list list-inline">
-                          <li><span class="text-overflow">4MATIC</span></li>
-                          <li>12 mi</li>
+                        <ul data-cmp="list" class="list list-inline display-inline-block margin-bottom-0">
+                          <li class="display-inline-flex align-items-center"><span class="text-overflow">4MATIC</span></li>
+                          <li class="display-inline-flex align-items-center">12 mi</li>
                         </ul>
                         <span class="fuel-type">Gasoline</span>
                       </div>
                     </div>
                   </div>
                   <div class="pricing-payments display-flex flex-column margin-bottom-4 fixed-height">
-                    <div data-cmp="pricing" class="price-version-2">
+                    <div data-cmp="pricing" class="price-version-2 align-items-end display-flex flex-wrap">
                       <div class="text-size-500 text-ultra-bold first-price text-gray-base" data-cmp="firstPrice">52,345</div>
                     </div>
+                    <span class="text-size-200 text-link link-undecorated" tabindex="0" role="button">See payment</span>
                   </div>
                 </div>
               </div>
             </div>
             <div class="item-card-footer margin-top-auto">
               <div class="listing-footer text-subdued-lightest text-size-100 padding-horizontal-4 padding-bottom-2">
+                <hr aria-hidden="true">
                 <div class="static-height-footer display-flex flex-column" data-cmp="cntnr-listing-footer">
                   <div class="text-left margin-bottom-2">
                     <div class="text-subdued"><span class="padding-left-1 ellipsis-truncated">Mercedes-Benz of Portland</span></div>
                     <div class="display-flex">
-                      <ul data-cmp="list" class="list list-inline">
-                        <li>
-                          <div data-cmp="ownerDistance" class="text-subdued"><span class="text-normal">5.12 mi. away</span></div>
+                      <ul data-cmp="list" class="list list-inline display-inline-block margin-bottom-0" role="presentation">
+                        <li class="display-inline-flex align-items-center no-list-decoration">
+                          <div class="display-flex align-items-center">
+                            <div data-cmp="ownerDistance" class="text-subdued"><span class="text-normal">5.12 mi. away</span></div>
+                          </div>
                         </li>
                       </ul>
                     </div>
@@ -318,14 +350,22 @@
             <span data-cmp="reducedPrice" class="label label-inverse">Price Drop</span>
             <span data-cmp="newlyListed" class="label label-inverse">Newly Listed</span>
           </div>
+          <div class="overlay-glyphs display-flex align-items-center justify-content-end col-xs-3 col-2">
+            <span class="display-inline-block save-glyph-background save-glyph-background-circle text-link link-undecorated" role="button" aria-label="Save vehicle">
+              <span data-cmp="saveGlyph" class="glyphicon-stack save-glyph-interactive save-glyph text-size-600 cursor-pointer">
+                <span class="transparent glyphicon glyphicon-heart"></span>
+                <span class="text-accent glyphicon glyphicon-heart-o"></span>
+              </span>
+            </span>
+          </div>
         </div>
         <div data-cmp="itemCard" class="row item-card display-flex align-items-stretch flex-grow-1 flex-column">
           <div class="col-xs-12 justify-content-center item-card-side">
             <div>
               <div data-cmp="inventoryListImage" class="positioned-overlay inventory-listing-media text-center">
                 <div class="positioned-overlay-wrapper">
-                  <div data-cmp="positionedOverlayBase" class="positioned-overlay-base image-container">
-                    <img data-cmp="inventoryImage" width="408" height="306" src="https://images2.autotrader.com/hn/c/81297d95703642c5b02106f7cdb6e49a.jpg?format=auto&amp;width=408&amp;height=306" alt="">
+                  <div data-cmp="positionedOverlayBase" class="positioned-overlay-base image-container bg-gray-darker">
+                    <img class="img-responsive-scale img-vertically-aligned" data-cmp="inventoryImage" width="408" height="306" src="https://images2.autotrader.com/hn/c/81297d95703642c5b02106f7cdb6e49a.jpg?format=auto&amp;width=408&amp;height=306" loading="lazy" alt="">
                   </div>
                 </div>
               </div>
@@ -338,25 +378,26 @@
                   <div class="display-flex justify-content-between">
                     <div data-cmp="listing-title-info" class="title-info">
                       <span data-cmp="listingCondition" class="condition">Used</span>
-                      <a data-cmp="link" title="Used 2023 Rivian R1S Adventure" href="/cars-for-sale/vehicle/768977930?clickType=listing">
-                        <h2 data-cmp="subheading" class="text-bold text-size-400">2023 Rivian R1S</h2>
+                      <a data-cmp="link" class="link-undecorated" title="Used 2023 Rivian R1S Adventure" data-next-link="true" href="/cars-for-sale/vehicle/768977930?clickType=listing">
+                        <h2 data-cmp="subheading" class="text-bold text-size-400 text-overflow padding-vertical-1 link-unstyled">2023 Rivian R1S</h2>
                       </a>
                       <div data-cmp="listingSpecifications" class="specifications">
-                        <ul data-cmp="list" class="list list-inline">
-                          <li><span class="text-overflow">Adventure</span></li>
-                          <li>26K mi</li>
+                        <ul data-cmp="list" class="list list-inline display-inline-block margin-bottom-0">
+                          <li class="display-inline-flex align-items-center"><span class="text-overflow">Adventure</span></li>
+                          <li class="display-inline-flex align-items-center">26K mi</li>
                         </ul>
                         <span class="fuel-type"><span class="glyphicon glyphicon-electric"></span>&nbsp;Electric</span>
                       </div>
                     </div>
                   </div>
                   <div class="pricing-payments display-flex flex-column margin-bottom-4 fixed-height">
-                    <div data-cmp="pricing" class="price-version-2">
+                    <div data-cmp="pricing" class="price-version-2 align-items-end display-flex flex-wrap">
                       <div class="text-size-500 text-ultra-bold first-price text-gray-base" data-cmp="firstPrice">58,974</div>
                     </div>
+                    <span class="text-size-200 text-link link-undecorated" tabindex="0" role="button">See payment</span>
                   </div>
-                  <div data-cmp="ListingBadges">
-                    <a data-cmp="VHRBadge" role="link" href="/cars-for-sale/vehicle/768977930#purchaseConfidence">
+                  <div class="iris:flex iris:flex-wrap iris:items-baseline iris:gap-2 iris:mb-1" data-cmp="ListingBadges">
+                    <a tabindex="0" href="/cars-for-sale/vehicle/768977930#purchaseConfidence" data-cmp="VHRBadge" role="link">
                       <div>No Accidents</div>
                     </a>
                   </div>
@@ -365,13 +406,16 @@
             </div>
             <div class="item-card-footer margin-top-auto">
               <div class="listing-footer text-subdued-lightest text-size-100 padding-horizontal-4 padding-bottom-2">
+                <hr aria-hidden="true">
                 <div class="static-height-footer display-flex flex-column" data-cmp="cntnr-listing-footer">
                   <div class="text-left margin-bottom-2">
                     <div class="text-subdued"><span class="padding-left-1 ellipsis-truncated">CarMax</span></div>
                     <div class="display-flex">
-                      <ul data-cmp="list" class="list list-inline">
-                        <li>
-                          <div data-cmp="ownerDistance" class="text-subdued"><span class="text-normal">2519.46 mi. away</span></div>
+                      <ul data-cmp="list" class="list list-inline display-inline-block margin-bottom-0" role="presentation">
+                        <li class="display-inline-flex align-items-center no-list-decoration">
+                          <div class="display-flex align-items-center">
+                            <div data-cmp="ownerDistance" class="text-subdued"><span class="text-normal">2519.46 mi. away</span></div>
+                          </div>
                         </li>
                       </ul>
                     </div>
@@ -398,15 +442,15 @@
               <div class="display-flex justify-content-between">
                 <div data-cmp="listing-title-info" class="title-info">
                   <span data-cmp="listingCondition" class="condition">Used</span>
-                  <a data-cmp="link" href="/cars-for-sale/vehicle/888888888?clickType=supplemental">
-                    <h2 data-cmp="subheading" class="text-bold text-size-400">2024 Tesla Model Y</h2>
+                  <a data-cmp="link" class="link-undecorated" data-next-link="true" href="/cars-for-sale/vehicle/888888888?clickType=supplemental">
+                    <h2 data-cmp="subheading" class="text-bold text-size-400 text-overflow padding-vertical-1 link-unstyled">2024 Tesla Model Y</h2>
                   </a>
                   <div data-cmp="listingSpecifications" class="specifications">
-                    <ul data-cmp="list" class="list list-inline">
-                      <li><span>Long Range</span></li>
-                      <li>5K mi</li>
+                    <ul data-cmp="list" class="list list-inline display-inline-block margin-bottom-0">
+                      <li class="display-inline-flex align-items-center"><span>Long Range</span></li>
+                      <li class="display-inline-flex align-items-center">5K mi</li>
                     </ul>
-                    <span class="fuel-type">Electric</span>
+                    <span class="fuel-type"><span class="glyphicon glyphicon-electric"></span>&nbsp;Electric</span>
                   </div>
                 </div>
               </div>

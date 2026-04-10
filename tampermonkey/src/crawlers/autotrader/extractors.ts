@@ -68,12 +68,20 @@ export function extractListing(card: Element): AutoTraderRawListing | null {
   const conditionEl = card.querySelector('[data-cmp="listingCondition"]');
   const condition = conditionEl?.textContent?.trim() ?? null;
 
-  // Specs list: first <li> is trim, second is mileage
+  // Specs list: positional — first <li> is trim, second is mileage.
+  // No aria-labels or data-cmp on individual <li> elements (verified Apr 2026).
+  // We validate mileage with a regex and swap if the positions are reversed.
   const specItems = card.querySelectorAll('[data-cmp="listingSpecifications"] li');
-  const trim = specItems[0]?.textContent?.trim() ?? null;
-  const mileage = specItems[1]?.textContent?.trim() ?? null;
+  const rawFirst = specItems[0]?.textContent?.trim() ?? null;
+  const rawSecond = specItems[1]?.textContent?.trim() ?? null;
+  const MILEAGE_RE = /^\d[\d,]*K?\s*mi$/i;
+  const positionsSwapped =
+    rawFirst !== null && MILEAGE_RE.test(rawFirst) && !MILEAGE_RE.test(rawSecond ?? '');
+  const trim = positionsSwapped ? rawSecond : rawFirst;
+  const mileage = positionsSwapped ? rawFirst : rawSecond;
 
-  // Fuel type is in a .fuel-type span
+  // Fuel type: class-based selector — no data-cmp alternative exists (verified Apr 2026).
+  // Only present for Electric/Hybrid vehicles; gasoline listings omit this element entirely.
   const fuelTypeEl = card.querySelector('.fuel-type');
   const fuelType = fuelTypeEl?.textContent?.trim() ?? null;
 
@@ -90,7 +98,9 @@ export function extractListing(card: Element): AutoTraderRawListing | null {
   const vhrBadgeEl = card.querySelector('[data-cmp="VHRBadge"]');
   const vhrBadge = vhrBadgeEl?.textContent?.trim() || null;
 
-  // Dealer info in footer
+  // Dealer info in footer.
+  // Dealer name: class-based selector — no data-cmp alternative exists (verified Apr 2026).
+  // Path: [data-cmp="cntnr-listing-footer"] > .text-left > .text-subdued > .ellipsis-truncated
   const footerEl = card.querySelector('[data-cmp="cntnr-listing-footer"]');
   const dealerNameEl = footerEl?.querySelector('.ellipsis-truncated');
   const dealerName = dealerNameEl?.textContent?.trim() ?? null;

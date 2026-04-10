@@ -7,9 +7,9 @@ import type {
 } from './types.js';
 
 /**
- * The root card element has both data-id (stock number) and data-clickprops
- * (structured metadata). This distinguishes real listings from recommendation
- * carousel items or other UI elements that share the kmx-car-tile class.
+ * The root card element is a semantic <article> with data-id (stock number)
+ * and data-clickprops (structured metadata). The data-* attribute selector
+ * works for both the current <article> tags and legacy <div> markup.
  */
 export const CARD_SELECTOR = '[data-id][data-clickprops]';
 
@@ -50,44 +50,85 @@ export function parseTitle(title: string): {
 }
 
 /**
+ * Extract location/availability text from a card.
+ * Prefers the new .kmx-car-tile__availability div, falls back to legacy
+ * .kmx-car-tile__location-info spans.
+ */
+function extractLocation(card: Element): string | null {
+  const availabilityEl = card.querySelector('.kmx-car-tile__availability');
+  if (availabilityEl) return availabilityEl.textContent?.trim() ?? null;
+
+  const locationSpans = card.querySelectorAll('.kmx-car-tile__location-info span');
+  const parts = Array.from(locationSpans).map((s) => s.textContent?.trim() ?? '');
+  return parts.join('') || null;
+}
+
+/**
  * Extract structured data from a single CarMax listing card.
  * Pure function — no side effects, no network calls.
+ *
+ * Selector priority: ARIA attributes > semantic HTML > data-* > class names.
  */
 export function extractListing(card: Element): CarMaxRawListing | null {
   const stockNumber = card.getAttribute('data-id');
   if (!stockNumber) return null;
 
-  const titleLink = card.querySelector('.kmx-car-tile__make-model-link a, h3 a');
-  const title = titleLink?.textContent?.trim() ?? '';
+  // Title: <a class="kmx-car-tile__make-model-link"> wraps <h3>
+  // Prefer h3 (semantic), fall back to the link itself
+  const titleLink = card.querySelector('.kmx-car-tile__make-model-link');
+  const titleEl = card.querySelector('h3') ?? titleLink;
+  const title = titleEl?.textContent?.trim() ?? '';
   if (!title) return null;
 
   const clickpropsRaw = card.getAttribute('data-clickprops') ?? '';
   const props = parseClickProps(clickpropsRaw);
 
-  const { year, make, model, trim } = parseTitle(title);
+  const { year, make, model } = parseTitle(title);
 
-  const priceEl = card.querySelector('.price-info .MuiTypography-h6');
+  // Trim: prefer aria-label="Trim: ..." (accessibility contract), fall back to
+  // data-clickprops parsing, then parseTitle
+  const trimEl = card.querySelector('[aria-label^="Trim:"]');
+  const trim = trimEl
+    ? trimEl.getAttribute('aria-label')!.replace(/^Trim:\s*/, '')
+    : (parseTitle(title).trim ?? null);
+
+  // Price: prefer .kmx-car-tile__price (stable BEM class), fall back to data-clickprops
+  const priceEl = card.querySelector('.kmx-car-tile__price');
   const price = priceEl?.textContent?.trim() ?? null;
   const priceNumeric = props['Price'] ? parseInt(props['Price'], 10) : null;
 
-  const mileageEl = card.querySelector('.mileage-info');
+  // Mileage: prefer aria-label ending in "miles" (accessibility contract),
+  // fall back to .kmx-car-tile__mileage class
+  const mileageEl =
+    card.querySelector('[aria-label$="miles"]') ?? card.querySelector('.kmx-car-tile__mileage');
   const mileage = mileageEl?.textContent?.trim() ?? null;
 
-  const link = titleLink?.getAttribute('href') ?? null;
+  // Link: from the make-model link or any link to /car/{stockNumber}
+  const link =
+    titleLink?.getAttribute('href') ??
+    card.querySelector(`a[href="/car/${stockNumber}"]`)?.getAttribute('href') ??
+    null;
 
-  const imgEl = card.querySelector('.kmx-car-tile__image-gallery img') as HTMLImageElement | null;
+  // Image: first img with alt text inside the card (hero image in swiper slide)
+  const imgEl = card.querySelector(
+    '[role="group"] img[alt], .kmx-car-tile__image-gallery img',
+  ) as HTMLImageElement | null;
   const imageUrl = imgEl?.getAttribute('src') ?? null;
 
-  const locationSpans = card.querySelectorAll('.kmx-car-tile__location-info span');
-  const locationParts = Array.from(locationSpans).map((s) => s.textContent?.trim() ?? '');
-  const location = locationParts.join('') || null;
+  // Location/availability: now in .kmx-car-tile__availability div,
+  // fall back to legacy .kmx-car-tile__location-info spans
+  const location = extractLocation(card);
 
   // Parse shipping cost from location text like "$549 Shipping | Est. arrival ..."
-  const shippingMatch = locationParts.join('').match(/\$[\d,]+\s*Shipping/);
+  const shippingMatch = location?.match(/\$[\d,]+\s*Shipping/);
   const shippingCost = shippingMatch ? shippingMatch[0] : null;
 
-  const monthlyEl = card.querySelector('.kmx-car-tile__post-calculator-terms .MuiTypography-h6');
-  const monthlyEstimate = monthlyEl?.textContent?.trim() ?? null;
+  // Monthly estimate: prefer aria-label on monthly-payment button,
+  // fall back to button text content
+  const monthlyBtn = card.querySelector(
+    '[aria-label*="per month"], .kmx-car-tile__monthly-payment',
+  );
+  const monthlyEstimate = monthlyBtn?.textContent?.trim() ?? null;
 
   return {
     stockNumber,
@@ -163,12 +204,25 @@ export function matchesCarMax(url: string): boolean {
 /**
  * Extract VIN from the detail page HTML.
  * The detail page is server-rendered with VIN in the page content.
+ *
+ * Tries multiple patterns in order of specificity:
+ * 1. aria-label containing VIN (accessibility contract, most durable)
+ * 2. Class-based tombstone-vin container (legacy)
+ * 3. Generic "VIN" label followed by a 17-character VIN string (fallback)
  */
 export function extractVinFromHtml(html: string): string | null {
-  const vinMatch = html.match(
+  // aria-label based: <span aria-label="VIN: ...">
+  const ariaMatch = html.match(/aria-label="VIN[:\s]+([A-HJ-NPR-Z0-9]{17})"/i);
+  if (ariaMatch) return ariaMatch[1];
+
+  // Legacy class-based: <div class="tombstone-vin">...<span>VIN</span><span>ABC123...</span>
+  const tombstoneMatch = html.match(
     /class="tombstone-vin[^"]*"[^>]*>[\s\S]*?<span[^>]*>VIN<\/span>\s*<span[^>]*>([A-HJ-NPR-Z0-9]{17})<\/span>/i,
   );
-  return vinMatch?.[1] ?? html.match(/VIN[\s\S]*?([A-HJ-NPR-Z0-9]{17})/)?.[1] ?? null;
+  if (tombstoneMatch) return tombstoneMatch[1];
+
+  // Generic fallback: any "VIN" label near a 17-char VIN string
+  return html.match(/VIN[\s\S]*?([A-HJ-NPR-Z0-9]{17})/)?.[1] ?? null;
 }
 
 /**

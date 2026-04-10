@@ -60,21 +60,21 @@ describe('parseTitle', () => {
 
 describe('extractListing', () => {
   it('extracts all fields from a shipping card', () => {
-    const card = doc.querySelector('[data-id="28099103"]')!;
+    const card = doc.querySelector('[data-id="27666208"]')!;
     const result = extractListing(card)!;
-    expect(result.stockNumber).toBe('28099103');
-    expect(result.title).toBe('2025 Rivian R1S Adventure Dual-Motor Standard');
-    expect(result.year).toBe(2025);
-    expect(result.make).toBe('Rivian');
-    expect(result.model).toBe('R1S');
-    expect(result.trim).toBe('Adventure Dual-Motor Standard');
-    expect(result.price).toBe('$66,998*');
-    expect(result.priceNumeric).toBe(66998);
-    expect(result.mileage).toBe('22K mi');
-    expect(result.link).toBe('/car/28099103');
-    expect(result.imageUrl).toContain('28099103/hero.jpg');
+    expect(result.stockNumber).toBe('27666208');
+    expect(result.title).toBe('2022 BMW X5');
+    expect(result.year).toBe(2022);
+    expect(result.make).toBe('BMW');
+    expect(result.model).toBe('X5');
+    expect(result.trim).toBe('M50i');
+    expect(result.price).toBe('$48,998*');
+    expect(result.priceNumeric).toBe(48998);
+    expect(result.mileage).toBe('42K mi');
+    expect(result.link).toBe('/car/27666208');
+    expect(result.imageUrl).toContain('27666208/hero.jpg');
     expect(result.shippingCost).toBe('$549 Shipping');
-    expect(result.monthlyEstimate).toBe('Est. $1,050/mo');
+    expect(result.monthlyEstimate).toBe('Est. $758 mo');
     expect(result.isReserved).toBe(false);
     expect(result.isComingSoon).toBe(false);
     expect(result.isMarkedDown).toBe(false);
@@ -83,7 +83,8 @@ describe('extractListing', () => {
   it('detects reserved status', () => {
     const card = doc.querySelector('[data-id="28164786"]')!;
     const result = extractListing(card)!;
-    expect(result.title).toBe('2024 Kia EV9 GT-Line');
+    expect(result.title).toBe('2024 Kia EV9');
+    expect(result.trim).toBe('GT-Line');
     expect(result.isReserved).toBe(true);
     expect(result.isComingSoon).toBe(false);
     expect(result.location).toContain('Reserved');
@@ -93,25 +94,41 @@ describe('extractListing', () => {
   it('detects coming soon status', () => {
     const card = doc.querySelector('[data-id="28510169"]')!;
     const result = extractListing(card)!;
-    expect(result.title).toBe('2025 Rivian R1S Adventure Dual-Motor Max');
+    expect(result.title).toBe('2025 Rivian R1S');
+    expect(result.trim).toBe('Adventure Dual-Motor Max');
     expect(result.isComingSoon).toBe(true);
     expect(result.isReserved).toBe(false);
     expect(result.location).toContain('Coming soon');
   });
 
   it('detects marked down status', () => {
-    const card = doc.querySelector('[data-id="28092917"]')!;
+    const card = doc.querySelector('[data-id="28480350"]')!;
     const result = extractListing(card)!;
-    expect(result.title).toBe('2024 Toyota Corolla LE');
+    expect(result.title).toBe('2023 Jeep Wrangler 4XE PHEV');
+    expect(result.trim).toBe('Unlimited Sahara');
     expect(result.isMarkedDown).toBe(true);
-    expect(result.location).toContain('Beaverton');
+    expect(result.location).toContain('Clackamas');
   });
 
   it('handles local test-drive card', () => {
-    const card = doc.querySelector('[data-id="28092917"]')!;
+    const card = doc.querySelector('[data-id="28480350"]')!;
     const result = extractListing(card)!;
     expect(result.location).toContain('Test drive today');
     expect(result.shippingCost).toBeNull();
+  });
+
+  it('extracts trim from aria-label', () => {
+    const card = doc.querySelector('[data-id="27666208"]')!;
+    const result = extractListing(card)!;
+    // Trim comes from aria-label="Trim: M50i", not from parseTitle
+    expect(result.trim).toBe('M50i');
+  });
+
+  it('extracts mileage from aria-label element', () => {
+    const card = doc.querySelector('[data-id="27666208"]')!;
+    const result = extractListing(card)!;
+    // Mileage element has aria-label="42,000 miles", text content is "42K mi"
+    expect(result.mileage).toBe('42K mi');
   });
 });
 
@@ -125,7 +142,7 @@ describe('extractAllListings', () => {
   it('excludes recommendation cards outside .listing-container', () => {
     const result = extractAllListings(doc);
     const stockNumbers = result.items.map((l) => l.stockNumber);
-    expect(stockNumbers).toEqual(['28099103', '28164786', '28510169', '28092917', '28555001']);
+    expect(stockNumbers).toEqual(['27666208', '28164786', '28510169', '28480350', '28555001']);
     expect(stockNumbers).not.toContain('99999999');
   });
 
@@ -133,13 +150,23 @@ describe('extractAllListings', () => {
     const result = extractAllListings(doc);
     const lc1958 = result.items.find((i) => i.stockNumber === '28555001');
     expect(lc1958).toBeDefined();
-    expect(lc1958!.title).toBe('2025 Toyota Land Cruiser 1958');
-    expect(lc1958!.trim).toBe('Cruiser 1958');
+    expect(lc1958!.title).toBe('2025 Toyota Land Cruiser');
+    expect(lc1958!.trim).toBe('1958');
   });
 });
 
 describe('extractVinFromHtml', () => {
-  it('extracts VIN from detail page HTML', () => {
+  it('extracts VIN from detail page HTML with aria-label', () => {
+    const html = '<span aria-label="VIN: 7PDSGBBAXSN046004">7PDSGBB...4</span>';
+    expect(extractVinFromHtml(html)).toBe('7PDSGBBAXSN046004');
+  });
+
+  it('extracts VIN from legacy tombstone-vin markup', () => {
+    const html = '<div class="tombstone-vin"><span>VIN</span><span>7PDSGBBAXSN046004</span></div>';
+    expect(extractVinFromHtml(html)).toBe('7PDSGBBAXSN046004');
+  });
+
+  it('extracts VIN from generic VIN label fallback', () => {
     const html = '<span>VIN</span><span>7PDSGBBAXSN046004</span>';
     expect(extractVinFromHtml(html)).toBe('7PDSGBBAXSN046004');
   });

@@ -16,6 +16,64 @@ export interface CrawlerDefinition {
 
 export const crawlerDefinitions: CrawlerDefinition[] = [
   {
+    id: 'dealer',
+    name: 'Dealer Website',
+    deriveTargetUrl: (config) => config.inventoryUrl || null,
+    fields: [
+      {
+        id: 'inventoryUrl',
+        label: 'Inventory Page URL',
+        type: 'url',
+        placeholder: 'https://www.westonkia.com/inventory',
+      },
+      {
+        id: 'taskName',
+        label: 'Task Name',
+        type: 'text',
+        placeholder: 'Weston Kia Inventory',
+      },
+      {
+        id: 'excludePatterns',
+        label: 'Exclude Patterns (comma-separated)',
+        type: 'text',
+        placeholder: 'Telluride, Carnival',
+      },
+      {
+        id: 'requirePatterns',
+        label: 'Require Patterns (comma-separated)',
+        type: 'text',
+        placeholder: 'EV6',
+      },
+      {
+        id: 'strategy',
+        label: 'Crawl Strategy',
+        type: 'select',
+        default: 'full',
+        options: [
+          { value: 'full', label: 'Full — load all pages' },
+          { value: 'latest', label: 'Latest — current page only' },
+        ],
+      },
+      {
+        id: 'runMode',
+        label: 'Run Mode',
+        type: 'select',
+        default: 'recurring',
+        options: [
+          { value: 'recurring', label: 'Recurring — re-crawl on a schedule' },
+          { value: 'once', label: 'One-time — complete after first crawl' },
+        ],
+      },
+      {
+        id: 'recrawlIntervalHours',
+        label: 'Re-crawl Interval (hours)',
+        type: 'number',
+        default: 24,
+        placeholder: '24',
+      },
+    ],
+  },
+  {
     id: 'linkedin',
     name: 'LinkedIn Activity Feed',
     deriveTargetUrl: (config) =>
