@@ -72,4 +72,52 @@ describe('dealerInspireExtractor', () => {
     const { items } = dealerInspireExtractor.extractAllListings(document);
     expect(items).toHaveLength(0);
   });
+
+  it('skips cards with malformed JSON in data-vehicle', () => {
+    document.body.innerHTML = `
+      <div id="hits">
+        <div class="result-wrap" data-vehicle="not valid json {{{">
+          <p>Bad JSON</p>
+        </div>
+      </div>
+    `;
+
+    const { items } = dealerInspireExtractor.extractAllListings(document);
+    expect(items).toHaveLength(0);
+  });
+
+  describe('loadMore', () => {
+    it('returns false when no next pagination link exists', async () => {
+      document.body.innerHTML = '<div class="pagination"></div>';
+      const result = await dealerInspireExtractor.loadMore!();
+      expect(result).toBe(false);
+    });
+
+    it('clicks the next link and returns true when pagination link exists', async () => {
+      document.body.innerHTML = `
+        <div class="pagination-next">
+          <a class="go-to-page" href="/page/2">Next</a>
+        </div>
+      `;
+      let clicked = false;
+      const link = document.querySelector('.go-to-page') as HTMLAnchorElement;
+      link.addEventListener('click', () => {
+        clicked = true;
+      });
+
+      const result = await dealerInspireExtractor.loadMore!();
+      expect(result).toBe(true);
+      expect(clicked).toBe(true);
+    });
+
+    it('returns false when next link has disable class', async () => {
+      document.body.innerHTML = `
+        <div class="pagination-next">
+          <a class="go-to-page disable" href="/page/2">Next</a>
+        </div>
+      `;
+      const result = await dealerInspireExtractor.loadMore!();
+      expect(result).toBe(false);
+    });
+  });
 });

@@ -277,6 +277,71 @@ describe('parseFeatures', () => {
   });
 });
 
+describe('extractLocation — legacy fallback', () => {
+  it('falls back to .kmx-car-tile__location-info spans when no availability div', () => {
+    document.body.innerHTML = `
+      <article data-id="99000001" data-clickprops="StockNumber: 99000001">
+        <h3>2021 Ford Escape</h3>
+        <div class="kmx-car-tile__location-info">
+          <span>Atlanta, GA</span>
+          <span>· Test drive today</span>
+        </div>
+      </article>
+    `;
+    const card = document.querySelector('[data-id="99000001"]')!;
+    const result = extractListing(card)!;
+    expect(result).not.toBeNull();
+    expect(result.location).toBe('Atlanta, GA· Test drive today');
+  });
+
+  it('returns null location when no location elements exist', () => {
+    document.body.innerHTML = `
+      <article data-id="99000002" data-clickprops="StockNumber: 99000002">
+        <h3>2021 Ford Escape SE</h3>
+      </article>
+    `;
+    const card = document.querySelector('[data-id="99000002"]')!;
+    const result = extractListing(card)!;
+    expect(result.location).toBeNull();
+  });
+});
+
+describe('extractAllListings — error paths', () => {
+  it('records an error for a card that returns null (missing title)', () => {
+    document.body.innerHTML = `
+      <div class="listing-container">
+        <article data-id="99000003" data-clickprops="">
+        </article>
+      </div>
+    `;
+    const { items, errors } = extractAllListings(document);
+    expect(items).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].message).toContain('Missing stock number or title');
+  });
+
+  it('records an error when extractListing throws', () => {
+    document.body.innerHTML = `
+      <div class="listing-container">
+        <article data-id="99000004" data-clickprops="">
+          <h3>2022 Honda CR-V EX</h3>
+        </article>
+      </div>
+    `;
+    const card = document.querySelector('[data-id="99000004"]')!;
+    const original = card.getAttribute.bind(card);
+    card.getAttribute = (name: string) => {
+      if (name === 'data-clickprops') throw new Error('simulated getAttribute error');
+      return original(name);
+    };
+
+    const { items, errors } = extractAllListings(document);
+    expect(items).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].message).toContain('simulated getAttribute error');
+  });
+});
+
 describe('matchesCarMax', () => {
   it('matches search results URLs', () => {
     expect(matchesCarMax('https://www.carmax.com/cars/suv')).toBe(true);

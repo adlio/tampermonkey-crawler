@@ -137,6 +137,72 @@ describe('dealerOnExtractor', () => {
     });
   });
 
+  describe('extractAllListings — error handling', () => {
+    it('records an error when a card throws during extraction', () => {
+      // A card with data-vin but a data-year that will be fine — we force the throw
+      // by setting up a card whose querySelector throws via a broken getter.
+      // Simpler: use a valid card element but override getAttribute to throw.
+      document.body.innerHTML = `
+        <div class="vehicle-card" data-vin="TESTVIN12345678901">
+        </div>
+      `;
+      const card = document.querySelector('.vehicle-card')!;
+      const original = card.getAttribute.bind(card);
+      card.getAttribute = (name: string) => {
+        if (name === 'data-year') throw new Error('simulated DOM error');
+        return original(name);
+      };
+
+      const { errors } = dealerOnExtractor.extractAllListings(document);
+      expect(errors).toHaveLength(1);
+      expect(errors[0].message).toContain('simulated DOM error');
+    });
+  });
+
+  describe('loadMore', () => {
+    it('returns false when no next pagination link exists', async () => {
+      document.body.innerHTML = '<div class="pagination"></div>';
+      const result = await dealerOnExtractor.loadMore!();
+      expect(result).toBe(false);
+    });
+
+    it('clicks the next link and returns true when .pagination .next a exists', async () => {
+      document.body.innerHTML = `
+        <div class="pagination">
+          <div class="next"><a href="/page/2">Next</a></div>
+        </div>
+      `;
+      let clicked = false;
+      const link = document.querySelector('.pagination .next a') as HTMLAnchorElement;
+      link.addEventListener('click', () => {
+        clicked = true;
+      });
+
+      const result = await dealerOnExtractor.loadMore!();
+      expect(result).toBe(true);
+      expect(clicked).toBe(true);
+    });
+
+    it('clicks the next link and returns true when srpPagination Next aria-label exists', async () => {
+      document.body.innerHTML = `
+        <div class="srpPagination">
+          <a aria-label="Next" href="/page/3">Next</a>
+        </div>
+      `;
+      let clicked = false;
+      const link = document.querySelector(
+        '.srpPagination a[aria-label="Next"]',
+      ) as HTMLAnchorElement;
+      link.addEventListener('click', () => {
+        clicked = true;
+      });
+
+      const result = await dealerOnExtractor.loadMore!();
+      expect(result).toBe(true);
+      expect(clicked).toBe(true);
+    });
+  });
+
   describe('extractAllListings — live fixture', () => {
     it('extracts from realistic DealerOn JSON-LD fixture', () => {
       const jsonLdHtml = readFileSync(resolve(fixturesDir, 'dealeron-jsonld.html'), 'utf-8');
