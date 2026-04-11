@@ -509,7 +509,7 @@ export const crawlerDefinitions: CrawlerDefinition[] = [
       if (!model) return null;
       const zip = config.zip || '97201';
       const distance = config.distance || 50;
-      return `https://www.toyota.com/search-inventory/model/${model}/?zipcode=${zip}&distance=${distance}`;
+      return `https://www.toyota.com/search-inventory/model/${model}/?zipcode=${zip}&distance[]=${distance}`;
     },
     fields: [
       {
