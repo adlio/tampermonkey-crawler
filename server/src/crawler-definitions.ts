@@ -504,7 +504,8 @@ export const crawlerDefinitions: CrawlerDefinition[] = [
         const distance = config.distance || 25;
         return `https://www.toyotacertified.com/inventory?zipCode=${zip}&radius=${distance}`;
       }
-      const model = (config.model || '').toLowerCase().replace(/\s+/g, '-');
+      // Toyota slugs are single words: "landcruiser", "rav4", "grandhighlander"
+      const model = (config.model || '').toLowerCase().replace(/[\s-]+/g, '');
       if (!model) return null;
       const zip = config.zip || '97201';
       const distance = config.distance || 50;
