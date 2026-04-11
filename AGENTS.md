@@ -30,6 +30,17 @@ Two npm workspaces (`server/` and `tampermonkey/`) in a monorepo. They share no 
 | SQLite schema | `server/src/db.ts` |
 | Environment variables | `.env` at project root (`PORT`) |
 
+## Make targets
+
+| Command | What it does |
+|---|---|
+| `make dev` | Start the server (Fastify on port 4242) |
+| `make build` | Build both server and tampermonkey userscript |
+| `make test` | Run all tests in both workspaces |
+| `make ci` | Format check + lint + build + test (runs on pre-commit) |
+
+After changing crawler code: `make build && make dev`, then reinstall the userscript at `http://localhost:4242/tampermonkey.user.js`.
+
 ## Common tasks
 
 **Adding a new site crawler**: Follow the step-by-step in [docs/troubleshooting.md, section 6](docs/troubleshooting.md#6-adding-a-new-site). Touches both workspaces.
