@@ -290,6 +290,78 @@ export async function buildApp(db: Database.Database, mediaStore: MediaStore) {
         return files;
       });
 
+      // DELETE /api/tasks/:id — delete a task and all associated data
+      api.delete('/tasks/:id', async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+        if (!task) return reply.status(404).send({ error: 'Task not found' });
+
+        // Delete media files from disk
+        const mediaFiles = db
+          .prepare(
+            `SELECT mf.filePath FROM media_files mf
+             JOIN raw_crawls rc ON rc.id = mf.rawCrawlId
+             WHERE rc.taskId = ?`,
+          )
+          .all(id) as { filePath: string }[];
+        for (const f of mediaFiles) {
+          mediaStore.delete(f.filePath);
+        }
+
+        // Cascade deletes in correct order
+        db.prepare(
+          `DELETE FROM media_files WHERE rawCrawlId IN
+             (SELECT id FROM raw_crawls WHERE taskId = ?)`,
+        ).run(id);
+        db.prepare('DELETE FROM raw_crawls WHERE taskId = ?').run(id);
+        db.prepare('DELETE FROM crawl_logs WHERE taskId = ?').run(id);
+        db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
+
+        return { deleted: true };
+      });
+
+      // PUT /api/tasks/:id — update task fields
+      api.put('/tasks/:id', async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as
+          | { id: string; name: string; targetUrl: string; config: string }
+          | undefined;
+        if (!task) return reply.status(404).send({ error: 'Task not found' });
+
+        const body = request.body as {
+          name?: string;
+          targetUrl?: string;
+          config?: Record<string, unknown>;
+        };
+
+        const updates: string[] = [];
+        const values: unknown[] = [];
+
+        if (body.name !== undefined) {
+          updates.push('name = ?');
+          values.push(body.name);
+        }
+        if (body.targetUrl !== undefined) {
+          updates.push('targetUrl = ?');
+          values.push(body.targetUrl);
+        }
+        if (body.config !== undefined) {
+          const existing = JSON.parse(task.config || '{}');
+          Object.assign(existing, body.config);
+          updates.push('config = ?');
+          values.push(JSON.stringify(existing));
+        }
+
+        if (updates.length > 0) {
+          updates.push('updatedAt = CURRENT_TIMESTAMP');
+          values.push(id);
+          db.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+        }
+
+        const updated = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+        return updated;
+      });
+
       // POST /api/tasks/:id/config — merge fields into task config
       api.post('/tasks/:id/config', async (request, _reply) => {
         const { id } = request.params as { id: string };

@@ -147,6 +147,155 @@ describe('task CRUD', () => {
 });
 
 // ---------------------------------------------------------------------------
+// DELETE /api/tasks/:id
+// ---------------------------------------------------------------------------
+describe('DELETE /api/tasks/:id', () => {
+  it('deletes a task and returns { deleted: true }', async () => {
+    const id = await createTask();
+
+    const resp = await app.inject({
+      method: 'DELETE',
+      url: `/api/tasks/${id}`,
+    });
+    expect(resp.statusCode).toBe(200);
+    expect(resp.json()).toEqual({ deleted: true });
+
+    // Task should be gone
+    const tasks = (await app.inject({ method: 'GET', url: '/api/tasks' })).json();
+    expect(tasks).toHaveLength(0);
+  });
+
+  it('returns 404 for nonexistent task', async () => {
+    const resp = await app.inject({
+      method: 'DELETE',
+      url: '/api/tasks/nonexistent-id',
+    });
+    expect(resp.statusCode).toBe(404);
+    expect(resp.json().error).toBe('Task not found');
+  });
+
+  it('cascades deletes to raw_crawls, media_files, and crawl_logs', async () => {
+    const taskId = await createTask();
+
+    // Create raw crawl data with media
+    await app.inject({
+      method: 'POST',
+      url: '/api/collect',
+      payload: {
+        site: 'linkedin',
+        taskId,
+        itemKey: 'post-del',
+        payload: {
+          text: 'Post to delete',
+          postDate: '2024-06-01T00:00:00.000Z',
+          images: [{ name: 'photo.png', data: pngBase64 }],
+        },
+      },
+    });
+
+    // Create a log entry
+    await app.inject({
+      method: 'POST',
+      url: `/api/tasks/${taskId}/log`,
+      payload: { level: 'info', message: 'Test log' },
+    });
+
+    // Verify data exists
+    expect(
+      db.prepare('SELECT COUNT(*) as c FROM raw_crawls WHERE taskId = ?').get(taskId) as any,
+    ).toHaveProperty('c', 1);
+    expect((db.prepare('SELECT COUNT(*) as c FROM media_files').get() as any).c).toBe(1);
+    expect(
+      db.prepare('SELECT COUNT(*) as c FROM crawl_logs WHERE taskId = ?').get(taskId) as any,
+    ).toHaveProperty('c', 1);
+
+    // Delete the task
+    const resp = await app.inject({
+      method: 'DELETE',
+      url: `/api/tasks/${taskId}`,
+    });
+    expect(resp.statusCode).toBe(200);
+
+    // All associated data should be gone
+    expect(
+      db.prepare('SELECT COUNT(*) as c FROM raw_crawls WHERE taskId = ?').get(taskId) as any,
+    ).toHaveProperty('c', 0);
+    expect((db.prepare('SELECT COUNT(*) as c FROM media_files').get() as any).c).toBe(0);
+    expect(
+      db.prepare('SELECT COUNT(*) as c FROM crawl_logs WHERE taskId = ?').get(taskId) as any,
+    ).toHaveProperty('c', 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /api/tasks/:id
+// ---------------------------------------------------------------------------
+describe('PUT /api/tasks/:id', () => {
+  it('updates task name', async () => {
+    const id = await createTask();
+
+    const resp = await app.inject({
+      method: 'PUT',
+      url: `/api/tasks/${id}`,
+      payload: { name: 'Updated Name' },
+    });
+    expect(resp.statusCode).toBe(200);
+    expect(resp.json().name).toBe('Updated Name');
+  });
+
+  it('updates targetUrl', async () => {
+    const id = await createTask();
+
+    const resp = await app.inject({
+      method: 'PUT',
+      url: `/api/tasks/${id}`,
+      payload: { targetUrl: 'https://example.com/new-target' },
+    });
+    expect(resp.statusCode).toBe(200);
+    expect(resp.json().targetUrl).toBe('https://example.com/new-target');
+  });
+
+  it('merges config into existing config', async () => {
+    const id = await createTask();
+
+    const resp = await app.inject({
+      method: 'PUT',
+      url: `/api/tasks/${id}`,
+      payload: { config: { newField: 'newValue' } },
+    });
+    expect(resp.statusCode).toBe(200);
+    const config = JSON.parse(resp.json().config);
+    // New field added
+    expect(config.newField).toBe('newValue');
+    // Original fields preserved
+    expect(config.profileId).toBe('simonwardley');
+    expect(config.taskName).toBe('Test Task');
+  });
+
+  it('returns 404 for nonexistent task', async () => {
+    const resp = await app.inject({
+      method: 'PUT',
+      url: '/api/tasks/nonexistent-id',
+      payload: { name: 'Nope' },
+    });
+    expect(resp.statusCode).toBe(404);
+    expect(resp.json().error).toBe('Task not found');
+  });
+
+  it('returns the task unchanged when no fields provided', async () => {
+    const id = await createTask();
+
+    const resp = await app.inject({
+      method: 'PUT',
+      url: `/api/tasks/${id}`,
+      payload: {},
+    });
+    expect(resp.statusCode).toBe(200);
+    expect(resp.json().name).toBe('Test Task');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // POST /api/tasks/:id/status
 // ---------------------------------------------------------------------------
 describe('POST /api/tasks/:id/status', () => {
