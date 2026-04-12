@@ -18,13 +18,13 @@ const MAX_SEE_MORE_CLICKS = 50;
 // Pacing: jittered delays to avoid uniform bot patterns.
 // Images come from a CDN (img2.carmax.com) so we can be more aggressive there.
 // The API calls produce natural burst patterns (same as a browser loading a detail page).
-const ITEM_DELAY_MIN_MS = 500; // min pause between vehicles
-const ITEM_DELAY_MAX_MS = 1500; // max pause between vehicles
+const ITEM_DELAY_MIN_MS = 200; // min pause between vehicles
+const ITEM_DELAY_MAX_MS = 800; // max pause between vehicles
 const IMAGE_BATCH_SIZE = 6; // concurrent image downloads (Chrome limit is 6/host)
 const IMAGE_BATCH_DELAY_MS = 0; // CDN handles concurrency; network latency is the natural delay
-const MAX_RETRIES = 10;
+const MAX_RETRIES = 3;
 const RETRY_BASE_MS = 1000;
-const MAX_BACKOFF_MS = 30_000;
+const MAX_BACKOFF_MS = 8_000;
 const MAX_CONSECUTIVE_SERVER_ERRORS = 5;
 
 function sleep(ms: number): Promise<void> {
