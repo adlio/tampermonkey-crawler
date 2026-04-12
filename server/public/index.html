@@ -280,7 +280,8 @@
 
             def.fields.forEach(field => {
                 const div = document.createElement('div');
-                const labelHtml = `<label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">${field.label}</label>`;
+                const reqMark = field.required ? '<span class="text-red-400 ml-0.5">*</span>' : '';
+                const labelHtml = `<label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">${field.label}${reqMark}</label>`;
                 if (field.type === 'select' && field.options) {
                     const optionsHtml = field.options.map(opt =>
                         `<option value="${opt.value}" ${opt.value === field.default ? 'selected' : ''}>${opt.label}</option>`
@@ -291,8 +292,9 @@
                         </select>`;
                 } else {
                     const defaultVal = field.default != null ? ` value="${field.default}"` : '';
+                    const reqAttr = field.required ? ' required' : '';
                     div.innerHTML = `${labelHtml}
-                        <input type="${field.type === 'select' ? 'text' : field.type}" id="field-${field.id}" placeholder="${field.placeholder || ''}"${defaultVal}
+                        <input type="${field.type === 'select' ? 'text' : field.type}" id="field-${field.id}" placeholder="${field.placeholder || ''}"${defaultVal}${reqAttr}
                             class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-300 shadow-sm">`;
                 }
                 container.appendChild(div);
@@ -305,9 +307,13 @@
 
             const def = definitions.find(d => d.id === siteId);
             const config = {};
+            const missing = [];
             def.fields.forEach(field => {
-                config[field.id] = document.getElementById(`field-${field.id}`).value;
+                const val = document.getElementById(`field-${field.id}`).value;
+                config[field.id] = val;
+                if (field.required && !val.trim()) missing.push(field.label);
             });
+            if (missing.length > 0) return alert('Required fields missing: ' + missing.join(', '));
 
             const resp = await fetch('/api/tasks', {
                 method: 'POST',

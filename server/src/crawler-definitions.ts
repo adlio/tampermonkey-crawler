@@ -2,6 +2,7 @@ export interface CrawlerField {
   id: string;
   label: string;
   type: 'text' | 'number' | 'url' | 'select';
+  required?: boolean;
   placeholder?: string;
   default?: string | number;
   options?: { value: string; label: string }[];
@@ -142,7 +143,8 @@ export const crawlerDefinitions: CrawlerDefinition[] = [
         id: 'make',
         label: 'Make',
         type: 'text',
-        placeholder: 'rivian',
+        required: true,
+        placeholder: 'e.g. kia',
       },
       {
         id: 'model',
@@ -231,7 +233,8 @@ export const crawlerDefinitions: CrawlerDefinition[] = [
         id: 'make',
         label: 'Make',
         type: 'text',
-        placeholder: 'rivian',
+        required: true,
+        placeholder: 'e.g. kia',
       },
       {
         id: 'model',
@@ -321,7 +324,8 @@ export const crawlerDefinitions: CrawlerDefinition[] = [
         id: 'make',
         label: 'Make',
         type: 'text',
-        placeholder: 'rivian',
+        required: true,
+        placeholder: 'e.g. kia',
       },
       {
         id: 'model',
