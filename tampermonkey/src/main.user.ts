@@ -17,9 +17,14 @@ const GM_PENDING_TASK_KEY = 'pendingCrawlTaskId';
     return task.config ? JSON.parse(task.config) : {};
   }
 
-  /** Find which crawler handles this domain. */
-  function findCrawlerForDomain(hostname: string): SiteCrawler | undefined {
-    return crawlers.find((c) => hostname.endsWith(c.domain));
+  /** Find which crawler handles the current page (domain match or DOM detection). */
+  function findCrawlerForPage(hostname: string): SiteCrawler | undefined {
+    // 1. Try exact domain match (existing behavior)
+    const domainMatch = crawlers.find((c) => c.domain && hostname.endsWith(c.domain));
+    if (domainMatch) return domainMatch;
+
+    // 2. Try DOM-based detection for domain-agnostic crawlers (e.g. dealer)
+    return crawlers.find((c) => !c.domain && c.match(window.location.href, document));
   }
 
   // ---------------------------------------------------------------------------
@@ -108,7 +113,7 @@ const GM_PENDING_TASK_KEY = 'pendingCrawlTaskId';
 
     const currentUrl = window.location.href;
 
-    if (crawler.match(currentUrl)) {
+    if (crawler.match(currentUrl, document)) {
       await executeCrawl(task, crawler, panel);
     } else if (task.targetUrl) {
       const container = showProgressUI(panel, task.name);
@@ -166,7 +171,7 @@ const GM_PENDING_TASK_KEY = 'pendingCrawlTaskId';
 
     const hostname = window.location.hostname;
     console.log('[Crawler] Checking domain:', hostname);
-    const crawler = findCrawlerForDomain(hostname);
+    const crawler = findCrawlerForPage(hostname);
     if (!crawler) {
       console.log('[Crawler] No crawler registered for this domain');
       return;
@@ -177,7 +182,18 @@ const GM_PENDING_TASK_KEY = 'pendingCrawlTaskId';
       const tasks = await fetchActionableTasks();
       console.log('[Crawler] Actionable tasks:', tasks.length);
 
-      const matchingTasks = tasks.filter((t) => t.site === crawler.name);
+      const matchingTasks = tasks.filter((t) => {
+        if (t.site !== crawler.name) return false;
+        // For domain-agnostic crawlers (dealer), also match targetUrl hostname
+        if (!crawler.domain && t.targetUrl) {
+          try {
+            return hostname === new URL(t.targetUrl).hostname;
+          } catch {
+            return false;
+          }
+        }
+        return true;
+      });
 
       // Reset any stale "running" tasks back to pending (interrupted by refresh/nav)
       for (const task of matchingTasks) {
@@ -193,7 +209,7 @@ const GM_PENDING_TASK_KEY = 'pendingCrawlTaskId';
       if (pendingTaskId) {
         GM_setValue(GM_PENDING_TASK_KEY, null);
         const task = matchingTasks.find((t) => t.id === pendingTaskId);
-        if (task && crawler.match(window.location.href)) {
+        if (task && crawler.match(window.location.href, document)) {
           console.log('[Crawler] Resuming stored crawl for task:', task.id);
           const panel = createPanel([], crawler);
           document.body.appendChild(panel);
